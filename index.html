@@ -1,1678 +1,670 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voxel Quest: Elements & Weather</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Voxel Quest: Final Fix</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #87CEEB;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            user-select: none;
-        }
-        canvas {
-            display: block;
-        }
+        body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; user-select: none; touch-action: none; -webkit-user-select: none; }
+        canvas { display: block; }
+        
+        /* UI 스타일 */
+        .pixel-font { font-family: monospace; font-weight: bold; text-shadow: 1px 1px 0 #000; color: white; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
         /* HUD */
-        #hud {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            font-size: 20px;
-            text-shadow: 2px 2px 0 #000;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            pointer-events: none;
-            z-index: 50;
-        }
-        .stat-bar {
-            background: rgba(0,0,0,0.5);
-            padding: 5px 10px;
-            border-radius: 5px;
-            border: 2px solid #555;
-        }
-        
-        /* HP Bar Style */
-        .hp-container {
-            min-width: 150px;
-        }
-        .hp-text {
-            display: flex; 
-            justify-content: space-between; 
-            color: #ff5252; 
-            font-size: 16px; 
-            margin-bottom: 3px;
-            font-weight: bold;
-        }
-        .hp-gauge-bg {
-            width: 100%; 
-            height: 10px; 
-            background: #330000; 
-            border: 1px solid #ff5252;
-        }
-        #ui-hp-bar {
-            width: 100%; 
-            height: 100%; 
-            background: #ff5252; 
-            transition: width 0.2s;
-        }
+        #hud-top { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 5px; }
+        .bar-con { width: 120px; height: 12px; background: #333; border: 2px solid #fff; position: relative; }
+        .bar-fill { height: 100%; width: 100%; transition: width 0.2s; }
+        .gold-txt { color: #FFD700; font-size: 16px; margin-left: 5px; }
 
-        /* Inventory Bar */
-        #ui-layer {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 8px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 12px;
-            pointer-events: none;
-            z-index: 50;
-        }
-        .slot {
-            width: 50px;
-            height: 50px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid #555;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            pointer-events: auto;
-            cursor: pointer;
-            transition: all 0.1s;
-        }
-        .slot.active {
-            border-color: #FFD700;
-            background: rgba(255, 215, 0, 0.2);
-            transform: scale(1.1);
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-            z-index: 10;
-        }
-        .slot-key {
-            position: absolute;
-            top: 2px;
-            left: 4px;
-            font-size: 10px;
-            color: white;
-            font-weight: bold;
-            text-shadow: 1px 1px 0 #000;
-        }
-        .block-preview {
-            width: 32px;
-            height: 32px;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
-        }
-        .item-icon {
-            font-size: 24px; 
-            text-shadow: 2px 2px 0px #000;
-        }
+        /* 인벤토리 */
+        #inv-wrap { position: absolute; top: 10px; right: 10px; width: 160px; height: 50px; overflow-x: auto; pointer-events: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+        #inv-wrap::-webkit-scrollbar { display: none; }
+        .slot { display: inline-flex; width: 40px; height: 40px; border: 2px solid #555; background: rgba(0,0,0,0.5); margin-right: 4px; justify-content: center; align-items: center; border-radius: 6px; position: relative; }
+        .slot.active { border-color: #FFD700; background: rgba(255,215,0,0.3); }
+        .icon { font-size: 20px; }
+        .b-preview { width: 20px; height: 20px; }
 
-        /* Shop / Menu Overlay */
-        #overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: none; /* Hidden by default */
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 100;
-        }
-        .shop-container {
-            background: #333;
-            padding: 30px;
-            border-radius: 15px;
-            border: 4px solid #4caf50;
-            text-align: center;
-            max-width: 600px;
-        }
-        .shop-title {
-            font-size: 32px;
-            margin-bottom: 20px;
-            color: #FFD700;
-            text-transform: uppercase;
-        }
-        .shop-items {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        .shop-btn {
-            background: #555;
-            border: 2px solid #777;
-            color: white;
-            padding: 15px;
-            cursor: pointer;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: 0.2s;
-        }
-        .shop-btn:hover { background: #666; border-color: #fff; }
-        .shop-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        /* 컨트롤러 */
+        #controls { position: absolute; bottom: 20px; width: 100%; height: 140px; pointer-events: none; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; }
+        .c-btn { width: 70px; height: 70px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; pointer-events: auto; display: flex; justify-content: center; align-items: center; font-size: 24px; color: white; backdrop-filter: blur(4px); }
+        .c-btn:active { background: rgba(255,215,0,0.4); border-color: #FFD700; }
+        .c-col { display: flex; flex-direction: column; gap: 10px; justify-content: flex-end; }
+        #btn-mode { width: 50px; height: 50px; border-radius: 12px; font-size: 20px; background: rgba(0,0,0,0.6); margin-bottom: 10px; align-self: flex-end; }
         
-        .action-row {
-            display: flex;
-            gap: 10px;
-            width: 100%;
-            margin-top: 10px;
-        }
-        .next-level-btn {
-            background: #2e7d32;
-            border-color: #4caf50;
-            flex: 2;
-            font-weight: bold;
-            font-size: 20px;
-            padding: 15px;
-        }
-        .next-level-btn:hover { background: #388e3c; }
-        .save-btn {
-            background: #1976D2;
-            flex: 1;
-        }
-
-        .death-screen {
-            color: #ff5252;
-        }
+        /* 오버레이 (메뉴) */
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; pointer-events: auto; }
+        .panel { background: #333; padding: 20px; border-radius: 10px; border: 2px solid #4CAF50; text-align: center; width: 80%; max-width: 300px; }
+        .big-btn { background: #4CAF50; color: white; border: none; padding: 12px; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; border-radius: 5px; }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 10px; }
+        .shop-item { background: #555; padding: 8px; font-size: 12px; border-radius: 4px; border: 1px solid #777; color: white; }
         
-        #boss-hud {
-            position: absolute;
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 400px;
-            display: none;
-            z-index: 40;
-        }
-        .boss-name {
-            color: #FF4081;
-            text-align: center;
-            font-weight: bold;
-            text-shadow: 2px 2px 0 #000;
-            margin-bottom: 5px;
-        }
-        .boss-bar-bg {
-            width: 100%;
-            height: 20px;
-            background: #333;
-            border: 2px solid #fff;
-        }
-        .boss-bar-fill {
-            width: 100%;
-            height: 100%;
-            background: #FF4081;
-            transition: width 0.2s;
-        }
-        #breath-bar {
-            width: 0%;
-            height: 10px;
-            background: #00B0FF;
-            transition: width 0.1s;
-            margin-top: 5px;
-            display: none;
-        }
+        /* 알림 */
+        .toast { position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%); color: #FFD700; font-size: 20px; font-weight: bold; text-shadow: 2px 2px 0 #000; opacity: 0; transition: opacity 0.5s; pointer-events: none; }
+        #boss-hud { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); width: 200px; display: none; text-align: center; }
+        .boss-bar { width: 100%; height: 8px; background: #333; border: 1px solid #fff; }
+        .boss-fill { height: 100%; background: #FF4081; width: 100%; }
     </style>
 </head>
 <body>
 
-    <!-- Heads Up Display -->
-    <div id="hud">
-        <div class="stat-bar">LEVEL: <span id="ui-level">1</span></div>
-        <div class="stat-bar" style="color:#FFD700;">GOLD: $<span id="ui-gold">0</span></div>
-        
-        <!-- Improved HP Bar -->
-        <div class="stat-bar hp-container">
-            <div class="hp-text">
-                <span>HP</span>
-                <span><span id="ui-hp">100</span>/<span id="ui-max-hp">100</span></span>
-            </div>
-            <div class="hp-gauge-bg">
-                <div id="ui-hp-bar"></div>
-            </div>
-        </div>
+<canvas id="cvs"></canvas>
 
-        <div id="breath-container" class="stat-bar" style="display:none; border-color: #00B0FF;">
-             O2: <div id="breath-bar" style="display:block; width:100%;"></div>
-        </div>
+<div id="ui-layer">
+    <div id="hud-top" class="pixel-font">
+        <div>LV <span id="ui-lv">1</span> <span class="gold-txt">$<span id="ui-gold">0</span></span></div>
+        <div class="bar-con"><div id="hp-bar" class="bar-fill" style="background:#f44336;"></div></div>
+        <div class="bar-con" id="air-con" style="display:none; border-color:#03A9F4; height:6px; margin-top:2px;"><div id="air-bar" class="bar-fill" style="background:#03A9F4;"></div></div>
     </div>
     
-    <div id="boss-hud">
-        <div class="boss-name">BOSS</div>
-        <div class="boss-bar-bg"><div class="boss-bar-fill" id="boss-hp-bar"></div></div>
+    <div id="boss-hud" class="pixel-font">
+        <div style="color:#FF4081; font-size:12px;">BOSS</div>
+        <div class="boss-bar"><div id="boss-fill" class="boss-fill"></div></div>
     </div>
 
-    <!-- Shop / Game Over Overlay -->
-    <div id="overlay">
-        <div class="shop-container" id="shop-menu">
-            <div class="shop-title">Level Complete!</div>
-            <div style="margin-bottom: 20px;">Current Gold: <span id="shop-gold" style="color:#FFD700; font-weight:bold;">0</span></div>
-            
-            <div class="shop-items">
-                <button class="shop-btn" onclick="buyItem('heal')">
-                    ❤️ Heal (50g)<br><small>+50 HP</small>
-                </button>
-                <button class="shop-btn" onclick="buyItem('damage')">
-                    ⚔️ Sharpen (200g)<br><small>+10 Dmg</small>
-                </button>
-                <button class="shop-btn" onclick="buyItem('speed')">
-                    👟 Boots (150g)<br><small>+Speed</small>
-                </button>
-                <button class="shop-btn" onclick="buyItem('maxhp')">
-                    🛡️ Armor (300g)<br><small>+50 Max HP</small>
-                </button>
-                <button class="shop-btn" onclick="buyItem('wand')" id="btn-wand">
-                    🔥 Fire Wand (500g)<br><small>Explosive Ranged</small>
-                </button>
-                <button class="shop-btn" disabled>
-                     🔒 Locked<br><small>Coming Soon</small>
-                </button>
-            </div>
+    <div id="toast" class="toast">저장됨!</div>
+</div>
 
-            <div class="action-row">
-                <button class="shop-btn save-btn" onclick="saveGame()">💾 Save</button>
-                <button class="shop-btn save-btn" onclick="document.getElementById('load-input').click()">📂 Load</button>
-                <button class="shop-btn next-level-btn" onclick="nextLevel()">Next Level >></button>
-            </div>
-            <input type="file" id="load-input" style="display:none" onchange="loadGame(this)">
+<div id="inv-wrap"></div>
+
+<div id="controls">
+    <div class="c-col" style="flex-direction:row; gap:15px;">
+        <div id="btn-l" class="c-btn">◀</div>
+        <div id="btn-r" class="c-btn">▶</div>
+    </div>
+    <div class="c-col">
+        <div id="btn-mode" class="c-btn" style="border-radius:10px;">⛏️</div>
+        <div id="btn-j" class="c-btn">⬆</div>
+    </div>
+</div>
+
+<div id="overlay">
+    <div id="p-main" class="panel">
+        <h1 style="color:#FFD700; margin:0 0 10px 0;">VOXEL QUEST</h1>
+        <p style="color:#aaa; font-size:12px;">모바일 수정 버전</p>
+        <button class="big-btn" onclick="Game.start(true)">새 게임 시작</button>
+        <button id="btn-load" class="big-btn" style="background:#2196F3; display:none;" onclick="Game.load()">이어하기</button>
+    </div>
+    
+    <div id="p-shop" class="panel" style="display:none;">
+        <h2 style="color:#fff; margin:0;">클리어!</h2>
+        <div class="shop-grid">
+            <div class="shop-item" onclick="Game.buy('heal')">❤️ 회복 (50G)</div>
+            <div class="shop-item" onclick="Game.buy('dmg')">⚔️ 공격 (200G)</div>
+            <div class="shop-item" onclick="Game.buy('spd')">👟 속도 (150G)</div>
+            <div class="shop-item" onclick="Game.buy('hp')">🛡️ 체력 (300G)</div>
+            <div class="shop-item" onclick="Game.buy('wand')">🔥 마법 (500G)</div>
         </div>
-
-        <div class="shop-container" id="death-menu" style="display:none; border-color: #d32f2f;">
-            <div class="shop-title death-screen">YOU DIED</div>
-            <p>You fell, drowned, or burned.</p>
-            <p>Restarting Level <span id="death-level">1</span></p>
-            <button class="shop-btn" onclick="restartGame()">Try Again</button>
-        </div>
+        <button class="big-btn" onclick="Game.nextLevel()">다음 레벨</button>
     </div>
 
-    <div id="ui-layer">
-        <!-- Slots injected by JS -->
+    <div id="p-dead" class="panel" style="display:none; border-color:#f44336;">
+        <h1 style="color:#f44336;">사망</h1>
+        <button class="big-btn" style="background:#f44336;" onclick="Game.restart()">재시작</button>
     </div>
-
-    <canvas id="gameCanvas"></canvas>
+</div>
 
 <script>
-    // --- Configuration ---
-    const TILE_SIZE = 40;
-    const GRAVITY = 0.5;
-    const TERMINAL_VELOCITY = 15;
-    let JUMP_FORCE = -11;
-    const INTERACTION_RANGE = 5 * TILE_SIZE; // 5 Blocks
+/** * 안전장치: 오류 발생 시 경고창 
+ */
+window.onerror = function(msg, url, line) {
+    alert("오류 발생: " + msg + "\n줄: " + line + "\n세이브 데이터를 초기화하고 다시 실행합니다.");
+    localStorage.removeItem('vq_v2_save');
+    location.reload();
+    return true;
+};
 
-    // --- ID Registry ---
-    const BLOCKS = {
-        AIR: 0, DIRT: 1, GRASS: 2, STONE: 3, WOOD: 4, LEAVES: 5, BRICK: 6,
-        SAND: 7, SNOW: 8, COAL_ORE: 9, GOLD_ORE: 10, DIAMOND_ORE: 11,
-        TNT: 12, GLASS: 13, PLANK: 14, SPIKE: 15, GOAL: 99,
-        WATER: 20, LAVA: 21
-    };
-    
-    const ITEMS = { SWORD: 100, WAND: 101 };
+// --- 설정 및 상수 ---
+const TILE = 40;
+const GRAVITY = 0.6;
+const BLOCKS = { AIR:0, DIRT:1, GRASS:2, STONE:3, WOOD:4, LEAVES:5, BRICK:6, TNT:12, WATER:20, LAVA:21, GOAL:99, SPIKE:15, ORE_C:9, ORE_G:10, ORE_D:11 };
+const ITEMS = { SWORD:100, WAND:101 };
 
-    const BLOCK_DEF = {
-        [BLOCKS.DIRT]: { color: '#5d4037' },
-        [BLOCKS.GRASS]: { color: '#5d4037', top: '#4caf50' },
-        [BLOCKS.STONE]: { color: '#757575' },
-        [BLOCKS.WOOD]: { color: '#5d4037', side: '#4e342e' },
-        [BLOCKS.LEAVES]: { color: '#2e7d32', alpha: 0.9 },
-        [BLOCKS.BRICK]: { color: '#b71c1c' },
-        [BLOCKS.SAND]: { color: '#fbc02d' },
-        [BLOCKS.SNOW]: { color: '#e0f7fa', top: '#ffffff' },
-        [BLOCKS.COAL_ORE]: { color: '#757575', speckle: '#212121', value: 5 },
-        [BLOCKS.GOLD_ORE]: { color: '#757575', speckle: '#ffeb3b', value: 15 },
-        [BLOCKS.DIAMOND_ORE]: { color: '#757575', speckle: '#00bcd4', value: 50 },
-        [BLOCKS.TNT]: { color: '#d32f2f', label: 'TNT' },
-        [BLOCKS.GLASS]: { color: '#81d4fa', alpha: 0.4 },
-        [BLOCKS.PLANK]: { color: '#8d6e63' },
-        [BLOCKS.SPIKE]: { color: '#9E9E9E', spike: true },
-        [BLOCKS.WATER]: { color: '#29B6F6', alpha: 0.5, fluid: true },
-        [BLOCKS.LAVA]: { color: '#FF5722', alpha: 0.8, fluid: true, light: true },
-        [BLOCKS.GOAL]: { color: '#6a1b9a', speckle: '#FFD700' }, 
-        [ITEMS.SWORD]: { icon: '🗡️', type: 'tool', color: '#00bcd4' },
-        [ITEMS.WAND]: { icon: '🔥', type: 'tool', color: '#FF5722' }
-    };
+// 블록 정의
+const DEFS = {
+    [BLOCKS.DIRT]: {c:'#5D4037'}, [BLOCKS.GRASS]: {c:'#5D4037', top:'#4CAF50'},
+    [BLOCKS.STONE]: {c:'#757575'}, [BLOCKS.WOOD]: {c:'#5D4037', side:'#3E2723'},
+    [BLOCKS.LEAVES]: {c:'#2E7D32'}, [BLOCKS.BRICK]: {c:'#B71C1C'},
+    [BLOCKS.TNT]: {c:'#D32F2F', txt:'TNT'}, [BLOCKS.WATER]: {c:'#29B6F6', a:0.5, fluid:true},
+    [BLOCKS.LAVA]: {c:'#FF5722', a:0.8, fluid:true}, [BLOCKS.GOAL]: {c:'#6A1B9A'},
+    [BLOCKS.ORE_C]: {c:'#757575', dot:'#111', val:5}, [BLOCKS.ORE_G]: {c:'#757575', dot:'#FFD700', val:15},
+    [BLOCKS.ORE_D]: {c:'#757575', dot:'#00BCD4', val:50}, [BLOCKS.SPIKE]:{c:'#999', spike:true},
+    [ITEMS.SWORD]: {icon:'🗡️', c:'#00BCD4', tool:true}, [ITEMS.WAND]: {icon:'🔥', c:'#FF5722', tool:true}
+};
 
-    // --- Global Game State ---
-    let gameState = "PLAY"; 
-    let currentLevel = 1;
-    let worldWidth = 100;
-    let worldHeight = 50;
-    
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let width, height;
-
-    let world = [];
-    let particles = [];
-    let mobs = [];
-    let projectiles = [];
-    let activeTNTs = []; // List of ignited TNT
-    let gameTime = 0; 
-    let shake = 0;
-    let damageFlash = 0; // Visual red flash intensity
-    
-    // Weather
-    let weather = "NONE"; // NONE, RAIN, SNOW
-    let weatherParticles = [];
-
-    // --- Player ---
-    const player = {
-        x: 0, y: 0,
-        width: 28, height: 38,
-        vx: 0, vy: 0,
-        grounded: false,
-        facingRight: true,
-        attackTimer: 0,
-        actionTimer: 0,
-        hp: 100, maxHp: 100,
-        gold: 10, speed: 6, damage: 15, // Start with 10 gold
-        hasWand: false,
-        breath: 100,
-        inWater: false,
-        invulnerable: 0
-    };
-
-    const camera = { x: 0, y: 0 };
-    
-    let inventory = [
-        ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, 
-        BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA
-    ];
-    let selectedBlockIndex = 0;
-
-    const keys = {};
-    const mouse = { x: 0, y: 0, leftDown: false, rightDown: false };
-
-    // --- Mobs ---
-    const MOB_TYPES = {
-        SLIME: { color: '#76ff03', width: 30, height: 20, speed: 2, jump: -8, hp: 30, reward: 10, type: 'slime' },
-        ZOMBIE: { color: '#2e7d32', width: 28, height: 38, speed: 1.5, jump: -10, hp: 50, reward: 20, type: 'zombie' },
-        BAT: { color: '#424242', width: 20, height: 20, speed: 3, jump: 0, hp: 20, reward: 15, type: 'bat', fly: true },
-        BOSS_SLIME: { color: '#00E676', width: 90, height: 90, speed: 3, jump: -14, hp: 600, reward: 500, type: 'boss', name: "KING SLIME" },
-        BOSS_ZOMBIE: { color: '#D50000', width: 60, height: 100, speed: 4, jump: -12, hp: 800, reward: 600, type: 'boss', name: "MUTANT ZOMBIE" },
-        BOSS_VOID: { color: '#212121', width: 100, height: 120, speed: 2, jump: -10, hp: 1200, reward: 1000, type: 'boss', name: "VOID LORD" }
-    };
-
-    let activeBoss = null;
-
-    // --- Initialization ---
-    function init() {
-        resize();
-        window.addEventListener('resize', resize);
-        generateLevel(1);
-        setupUI();
-        updateHUD();
-        
-        window.addEventListener('keydown', e => {
-            keys[e.code] = true;
-            if(gameState === "PLAY") {
-                const num = parseInt(e.key);
-                if (!isNaN(num) && num >= 1 && num <= 9) selectSlot(num - 1);
-            }
-        });
-        window.addEventListener('keyup', e => keys[e.code] = false);
-        
-        canvas.addEventListener('mousemove', e => {
-            const rect = canvas.getBoundingClientRect();
-            mouse.x = e.clientX - rect.left;
-            mouse.y = e.clientY - rect.top;
-        });
-        
-        canvas.addEventListener('mousedown', e => {
-            if (e.button === 0) mouse.leftDown = true;
-            if (e.button === 2) mouse.rightDown = true;
-        });
-        
-        canvas.addEventListener('mouseup', e => {
-            if (e.button === 0) mouse.leftDown = false;
-            if (e.button === 2) mouse.rightDown = false;
-        });
-
-        canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-        requestAnimationFrame(loop);
+// --- 오디오 (Web Audio API) ---
+const Audio = {
+    ctx: null,
+    init() { if(!this.ctx) this.ctx = new (window.AudioContext||window.webkitAudioContext)(); if(this.ctx.state==='suspended')this.ctx.resume(); },
+    play(type, freq, dur, vol=0.1) {
+        if(!this.ctx) return;
+        let o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = type; o.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        g.gain.setValueAtTime(vol, this.ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime+dur);
+        o.connect(g); g.connect(this.ctx.destination);
+        o.start(); o.stop(this.ctx.currentTime+dur);
     }
+};
+const SFX = {
+    jump: ()=>Audio.play('square', 300, 0.1),
+    hit: ()=>Audio.play('sawtooth', 100, 0.1),
+    coin: ()=>Audio.play('sine', 1200, 0.15),
+    exp: ()=>Audio.play('sawtooth', 50, 0.5)
+};
 
-    function resize() {
-        width = canvas.width = window.innerWidth;
-        height = canvas.height = window.innerHeight;
-    }
+// --- 게임 엔진 ---
+const Game = {
+    cvs: null, ctx: null,
+    w: 0, h: 0,
+    state: "MENU",
+    world: [], mobs: [], parts: [], projs: [], tnts: [],
+    ww: 100, wh: 50,
+    cam: {x:0, y:0}, shake:0,
+    
+    // 플레이어
+    p: {x:0, y:0, w:28, h:38, vx:0, vy:0, hp:100, max:100, gold:0, spd:6, dmg:15, air:100, dir:1, inv:0, wand:false},
+    keys: {l:false, r:false, u:false},
+    inv: [ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.TNT, BLOCKS.WATER],
+    slot: 0,
+    mode: "MINE",
+    lvl: 1,
 
-    // --- Level Generation ---
-    function generateLevel(level) {
-        world = [];
-        particles = [];
-        mobs = [];
-        projectiles = [];
-        weatherParticles = [];
-        activeTNTs = [];
-        player.vx = 0; player.vy = 0;
-        player.breath = 100;
-        activeBoss = null;
-        document.getElementById('boss-hud').style.display = 'none';
+    init() {
+        this.cvs = document.getElementById('cvs');
+        this.ctx = this.cvs.getContext('2d', {alpha:false});
+        this.resize();
+        window.addEventListener('resize', ()=>this.resize());
         
-        // Random Weather
-        let wRand = Math.random();
-        if (wRand < 0.2) weather = "RAIN";
-        else if (wRand < 0.4 && level > 2) weather = "SNOW";
-        else weather = "NONE";
-
-        // Infinite Scaling
-        worldWidth = 150 + (level * 20); 
-        worldHeight = 60;
-        const mobChance = Math.min(0.05, 0.02 + (level * 0.005)); 
-
-        const heights = [];
-        for (let x = 0; x < worldWidth; x++) {
-            let base = Math.sin(x * 0.05) * (5 + level * 2); 
-            let detail = Math.sin(x * 0.3) * (2 + level);
-            let h = Math.floor(worldHeight / 2 + base + detail);
-            // Clamp Height to prevent OOB
-            if(h < 5) h = 5;
-            if(h > worldHeight - 5) h = worldHeight - 5;
-            heights.push(h);
-        }
-
-        const isBossLevel = level % 3 === 0;
-
-        // Calculate dirt depths
-        let dirtDepths = [];
-        let currDepth = 4;
-        for(let x=0; x<worldWidth; x++) {
-            let change = Math.floor(Math.random() * 5) - 2; 
-            currDepth += change;
-            if (currDepth < 0) currDepth = 0;
-            if (currDepth > 5) currDepth = 5;
-            dirtDepths.push(currDepth);
-        }
-
-        for (let y = 0; y < worldHeight; y++) {
-            let row = [];
-            for (let x = 0; x < worldWidth; x++) {
-                let h = heights[x];
-                let dDepth = dirtDepths[x];
-                let block = BLOCKS.AIR;
-
-                if (x < 20) {
-                    h = Math.floor(worldHeight / 2);
-                    if (y >= h) block = (y === h) ? BLOCKS.GRASS : BLOCKS.DIRT;
-                    if (y >= worldHeight - 2) block = BLOCKS.BRICK;
-                } else {
-                    let isGap = false;
-                    if (isBossLevel && x > worldWidth - 60) h = Math.floor(worldHeight/2);
-                    else if (x < worldWidth - 20) {
-                         let gapNoise = Math.sin(x * 0.8) * Math.cos(x * 0.4);
-                         if (gapNoise > (0.9 - (level * 0.02))) isGap = true;
-                    }
-
-                    if (isGap && y > worldHeight - 5) {
-                        block = (Math.random() < 0.5) ? BLOCKS.SPIKE : BLOCKS.LAVA;
-                    } else if (!isGap && y >= h) {
-                        if (y === h) block = BLOCKS.GRASS;
-                        else if (y > h && y <= h + dDepth) block = BLOCKS.DIRT; 
-                        else block = BLOCKS.STONE;
-                        
-                        if (block === BLOCKS.STONE) {
-                            let r = Math.random();
-                            if (r < 0.05) block = BLOCKS.COAL_ORE;
-                            else if (r < 0.03) block = BLOCKS.GOLD_ORE;
-                            else if (r < 0.02) block = BLOCKS.DIAMOND_ORE;
-                        }
-                    }
-                    if (y >= worldHeight - 2) block = BLOCKS.BRICK;
-                }
-                
-                // One Block Portal
-                if (x === worldWidth - 4 && y === h - 1) block = BLOCKS.GOAL;
-                if (x > worldWidth - 10 && y >= h && block === BLOCKS.AIR) block = BLOCKS.STONE;
-
-                row.push(block);
-            }
-            world.push(row);
-        }
-
-        // Ponds Generation (Flat Top Ellipse, Non-destructive)
-        let numPonds = Math.floor(Math.random() * 4); // 0 to 3
-        for(let i=0; i<numPonds; i++) {
-            let pW = 7 + Math.floor(Math.random() * 6); // 7 to 12
-            let pD = 3 + Math.floor(Math.random() * 3); // 3 to 5
-            
-            let startX = 25 + Math.floor(Math.random() * (worldWidth - 50));
-            if (isBossLevel && startX > worldWidth - 70) continue; 
-
-            // Find surface height at the center of the potential pond
-            let centerIdx = startX + Math.floor(pW/2);
-            // Safety check for index
-            if (centerIdx >= heights.length) continue;
-            let surfaceY = heights[centerIdx];
-            
-            // Ellipse center
-            let cX = startX + pW / 2;
-            let cY = surfaceY; 
-            let rX = pW / 2;
-            let rY = pD;
-
-            for (let x = startX; x < startX + pW; x++) {
-                if (x >= worldWidth - 10) continue;
-                
-                // Calculate max depth at this x from ellipse
-                let xDist = (x - cX);
-                let yDist = rY * Math.sqrt(1 - (xDist*xDist)/(rX*rX));
-                
-                if (isNaN(yDist)) continue;
-                let maxY = Math.floor(cY + yDist);
-
-                // Dig and fill only (Do not clear air above)
-                for (let y = surfaceY; y <= maxY; y++) {
-                    if (y < 0 || y >= worldHeight - 2) continue; // Boundary check
-                    
-                    // Boundary check for x is handled by loop and array gen
-                    if (!world[y]) continue; // Safety check for row existence
-
-                    let existing = world[y][x];
-                    // Only replace solid blocks with water (avoids floating water)
-                    // And do not replace special blocks
-                    if (existing !== BLOCKS.AIR && existing !== BLOCKS.GOAL && existing !== BLOCKS.BRICK) {
-                        world[y][x] = BLOCKS.WATER;
-                    }
-                }
-            }
-        }
-
-        // Mobs Generation (First pass)
-        for (let x = 20; x < worldWidth - 20; x++) {
-            if (isBossLevel && x > worldWidth - 60) continue;
-            if (Math.random() < mobChance) {
-                let h = heights[x];
-                // Ground Mobs
-                if (world[h][x] !== BLOCKS.AIR && world[h-1][x] === BLOCKS.AIR) {
-                    let type = (Math.random() < 0.6) ? 'SLIME' : 'ZOMBIE';
-                    spawnMob(x * TILE_SIZE, (h - 2) * TILE_SIZE, type);
-                }
-                // Flying Mobs
-                if (level > 2 && Math.random() < 0.3) {
-                     spawnMob(x * TILE_SIZE, (h - 10) * TILE_SIZE, 'BAT');
-                }
-            }
-        }
-
-        // Ensure minimum 3 mobs
-        while (mobs.length < 3) {
-            let rx = 20 + Math.floor(Math.random() * (worldWidth - 40));
-            if (isBossLevel && rx > worldWidth - 60) continue;
-            let rh = heights[rx];
-            if (world[rh][rx] !== BLOCKS.AIR && world[rh-1][rx] === BLOCKS.AIR) {
-                spawnMob(rx * TILE_SIZE, (rh - 2) * TILE_SIZE, 'SLIME');
-            }
-        }
-
-        if (isBossLevel) {
-            let bx = (worldWidth - 30) * TILE_SIZE;
-            let bossType = 'BOSS_SLIME';
-            if (level % 9 === 3) bossType = 'BOSS_SLIME';
-            else if (level % 9 === 6) bossType = 'BOSS_ZOMBIE';
-            else if (level % 9 === 0) bossType = 'BOSS_VOID';
-            spawnMob(bx, 0, bossType);
-        }
-
-        player.x = 5 * TILE_SIZE;
-        player.y = 0; 
+        // 입력 설정
+        this.bindBtn('btn-l', 'l'); this.bindBtn('btn-r', 'r'); this.bindBtn('btn-j', 'u');
+        document.getElementById('btn-mode').addEventListener('touchstart', (e)=>{
+            e.preventDefault();
+            this.mode = this.mode==="MINE"?"BUILD":"MINE";
+            document.getElementById('btn-mode').innerText = this.mode==="MINE"?"⛏️":"🧱";
+        });
         
-        gameState = "PLAY";
+        // 터치 (메인 액션)
+        this.cvs.addEventListener('touchstart', e=>this.handleTouch(e), {passive:false});
+        this.cvs.addEventListener('touchmove', e=>this.handleTouch(e), {passive:false});
+
+        // 세이브 확인
+        if(localStorage.getItem('vq_v2_save')) document.getElementById('btn-load').style.display='inline-block';
+        
+        // 루프 시작
+        requestAnimationFrame(()=>this.loop());
+    },
+
+    resize() { this.w=this.cvs.width=window.innerWidth; this.h=this.cvs.height=window.innerHeight; },
+    
+    bindBtn(id, key) {
+        let el = document.getElementById(id);
+        el.addEventListener('touchstart', e=>{e.preventDefault(); el.style.background='rgba(255,215,0,0.4)'; this.keys[key]=true;});
+        el.addEventListener('touchend', e=>{e.preventDefault(); el.style.background=''; this.keys[key]=false;});
+    },
+
+    start(reset) {
+        Audio.init();
+        if(reset) {
+            this.lvl=1; 
+            this.p = {x:0, y:0, w:28, h:38, vx:0, vy:0, hp:100, max:100, gold:0, spd:6, dmg:15, air:100, dir:1, inv:0, wand:false};
+            this.inv = [ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.TNT, BLOCKS.WATER];
+        }
+        this.genLevel(this.lvl);
+        this.state = "PLAY";
         document.getElementById('overlay').style.display = 'none';
-        updateHUD();
-    }
+        this.uiInv();
+    },
 
-    function spawnMob(x, y, typeKey) {
-        let stats = MOB_TYPES[typeKey];
-        let hpScale = stats.hp + (currentLevel * 10);
-        let m = {
-            x: x, y: y,
-            vx: 0, vy: 0,
-            ...stats,
-            maxHp: hpScale,
-            hp: hpScale,
-            grounded: false,
-            hurtTimer: 0
-        };
-        mobs.push(m);
-        if (stats.type === 'boss') {
-            activeBoss = m;
-            // Removed direct show here
-            document.querySelector('.boss-name').innerText = stats.name;
+    load() {
+        try {
+            let d = JSON.parse(localStorage.getItem('vq_v2_save'));
+            if(!d) throw "No Save";
+            this.lvl=d.l; this.p=d.p; this.inv=d.i;
+            this.start(false);
+        } catch(e) {
+            alert("세이브 파일 오류. 새로 시작합니다.");
+            this.start(true);
         }
-    }
+    },
 
-    // --- Game Logic ---
-    function loop() {
-        if (gameState === "PLAY") {
-            update();
-        }
-        draw();
-        requestAnimationFrame(loop);
-    }
-
-    function update() {
-        gameTime++;
-        if(shake > 0) shake *= 0.9;
-        if(shake < 0.5) shake = 0;
-        if(player.invulnerable > 0) player.invulnerable--;
-
-        // Weather Particles
-        if (weather === "RAIN") {
-            if (Math.random() < 0.5) weatherParticles.push({x: Math.random()*width, y: -10, vy: 15 + Math.random()*5, type: 'rain'});
-        } else if (weather === "SNOW") {
-            if (Math.random() < 0.2) weatherParticles.push({x: Math.random()*width, y: -10, vy: 2 + Math.random(), vx: Math.random()-0.5, type: 'snow'});
-        }
+    genLevel(l) {
+        this.world = []; this.mobs = []; this.tnts = []; this.projs = []; this.parts = [];
+        this.ww = 100 + l*10;
         
-        // Physics
-        let blockAtFeet = getBlock(Math.floor((player.x + player.width/2)/TILE_SIZE), Math.floor((player.y + player.height/2)/TILE_SIZE));
-        player.inWater = (blockAtFeet === BLOCKS.WATER);
-        let inLava = (blockAtFeet === BLOCKS.LAVA);
-
-        // Movement
-        let moveSpeed = player.speed;
-        if (player.inWater) moveSpeed *= 0.5;
-        if (inLava) moveSpeed *= 0.1; // Extremely slow in lava
-
-        if (keys['KeyA'] || keys['ArrowLeft']) { player.vx = -moveSpeed; player.facingRight = false; }
-        else if (keys['KeyD'] || keys['ArrowRight']) { player.vx = moveSpeed; player.facingRight = true; }
-        else player.vx = 0;
-
-        if (keys['Space'] || keys['ArrowUp'] || keys['KeyW']) {
-            if (player.inWater) {
-                // Modified Jump Logic for Water Surface
-                let headBlockX = Math.floor((player.x + player.width/2)/TILE_SIZE);
-                let headBlockY = Math.floor((player.y)/TILE_SIZE);
-                let blockAboveHead = getBlock(headBlockX, headBlockY - 1);
-                
-                // If head is near surface (block above is air), allow jump
-                if (blockAboveHead === BLOCKS.AIR) {
-                    player.vy = JUMP_FORCE * 0.5; // Half jump height on water
-                } else {
-                    player.vy = -3; // Regular swim
-                }
-            } else if (player.grounded) {
-                player.vy = JUMP_FORCE;
-                player.grounded = false;
-            }
+        // 지형 생성
+        let heights = [];
+        for(let x=0; x<this.ww; x++) {
+            let h = Math.floor(this.wh/2 + Math.sin(x*0.05)*(5+l));
+            heights.push(Math.max(5, Math.min(this.wh-5, h)));
         }
 
-        // Gravity / Drag
-        if (player.inWater) {
-             player.vy += 0.1; // Low gravity
-             if(player.vy > 3) player.vy = 3;
-             player.breath -= 0.5;
-             if(player.breath <= 0 && gameTime % 30 === 0) takeDamage(5);
+        for(let y=0; y<this.wh; y++) {
+            let row = [];
+            for(let x=0; x<this.ww; x++) {
+                let h = heights[x], b = BLOCKS.AIR;
+                // 안전지대 (0~15)
+                if(x < 15) {
+                    if(y >= Math.floor(this.wh/2)) b = (y===Math.floor(this.wh/2)) ? BLOCKS.GRASS : BLOCKS.DIRT;
+                } else {
+                    if(y === h) b = BLOCKS.GRASS;
+                    else if(y > h && y < h+5) b = BLOCKS.DIRT;
+                    else if(y >= h+5) {
+                        b = BLOCKS.STONE;
+                        if(Math.random()<0.05) b=BLOCKS.ORE_C;
+                        else if(Math.random()<0.02) b=BLOCKS.ORE_G;
+                        else if(Math.random()<0.005) b=BLOCKS.ORE_D;
+                    }
+                }
+                if(y === this.wh-1) b = BLOCKS.BRICK;
+                if(x === this.ww-3 && y === h-1) b = BLOCKS.GOAL;
+                row.push(b);
+            }
+            this.world.push(row);
+        }
+
+        // 몬스터
+        for(let i=0; i<5+l; i++) {
+            let mx = 20 + Math.floor(Math.random()*(this.ww-40));
+            let my = heights[mx] - 2;
+            this.spawnMob(mx*TILE, my*TILE, Math.random()<0.5?'SLIME':'ZOMBIE');
+        }
+        // 보스
+        if(l%3===0) this.spawnMob((this.ww-10)*TILE, 0, 'BOSS');
+
+        // 플레이어 위치 안전하게 잡기
+        this.p.x = 5 * TILE;
+        let startY = (Math.floor(this.wh/2) - 2) * TILE;
+        this.p.y = startY;
+        this.p.vx = 0; this.p.vy = 0;
+        
+        // 카메라 초기화
+        this.cam.x = this.p.x - this.w/2;
+        this.cam.y = this.p.y - this.h/2;
+        
+        this.updHud();
+    },
+
+    // --- 메인 루프 ---
+    loop() {
+        if(this.state === "PLAY") this.update();
+        this.draw();
+        requestAnimationFrame(()=>this.loop());
+    },
+
+    update() {
+        if(this.shake > 0) this.shake *= 0.9;
+        if(this.p.inv > 0) this.p.inv--;
+
+        // 물리 - 플레이어
+        let bx = Math.floor((this.p.x+14)/TILE), by = Math.floor((this.p.y+19)/TILE);
+        let b = this.getB(bx, by), fluid = (b===BLOCKS.WATER || b===BLOCKS.LAVA);
+        
+        let spd = this.p.spd * (fluid ? 0.5 : 1);
+        if(this.keys.l) { this.p.vx = -spd; this.p.dir = -1; }
+        else if(this.keys.r) { this.p.vx = spd; this.p.dir = 1; }
+        else this.p.vx = 0;
+
+        if(this.keys.u) {
+            if(fluid) { this.p.vy = -3; SFX.jump(); }
+            else if(this.p.grounded) { this.p.vy = -11; this.p.grounded=false; SFX.jump(); }
+            this.keys.u = false;
+        }
+
+        if(fluid) {
+            this.p.vy += 0.1; if(this.p.vy > 3) this.p.vy=3;
+            this.p.air -= 0.5;
+            if(this.p.air<=0) this.hitP(1);
         } else {
-             player.vy += GRAVITY;
-             player.breath = Math.min(player.breath + 1, 100);
+            this.p.vy += GRAVITY;
+            this.p.air = Math.min(100, this.p.air+1);
         }
-        
-        // Lava Damage
-        if (inLava && gameTime % 30 === 0) takeDamage(10);
+        if(b===BLOCKS.LAVA) this.hitP(1);
 
-        if (player.vy > TERMINAL_VELOCITY) player.vy = TERMINAL_VELOCITY;
-        if (player.attackTimer > 0) player.attackTimer--;
-        if (player.actionTimer > 0) player.actionTimer--;
+        this.p.x += this.p.vx; this.col(this.p, 'x');
+        this.p.y += this.p.vy; this.p.grounded=false; this.col(this.p, 'y');
 
-        player.x += player.vx;
-        checkEntityCollision(player, 'x');
-        player.y += player.vy;
-        player.grounded = false;
-        checkEntityCollision(player, 'y');
+        if(this.p.y > this.wh*TILE + 200 || this.p.hp <= 0) this.die();
 
-        // Continuous Interaction (Drag)
-        if (gameState === "PLAY") {
-            if (mouse.leftDown) handleInteraction(0);
-            if (mouse.rightDown) handleInteraction(2);
+        // 목표 확인
+        if(this.getB(Math.floor((this.p.x+14)/TILE), Math.floor((this.p.y+19)/TILE)) === BLOCKS.GOAL) {
+            this.win();
         }
 
-        // Goal
-        let px = Math.floor((player.x + player.width/2) / TILE_SIZE);
-        let py = Math.floor((player.y + player.height/2) / TILE_SIZE);
-        if (getBlock(px, py) === BLOCKS.GOAL) {
-            completeLevel();
-        }
+        // 카메라 추적
+        this.cam.x += (this.p.x + 14 - this.w/2 - this.cam.x) * 0.1;
+        this.cam.y += (this.p.y + 19 - this.h/2 - this.cam.y) * 0.1;
 
-        if (player.y > worldHeight * TILE_SIZE + 100) die();
-        if (player.hp <= 0) die();
-
-        // Camera
-        let targetCamX = player.x + player.width / 2 - width / 2;
-        let targetCamY = player.y + player.height / 2 - height / 2;
-        camera.x += (targetCamX - camera.x) * 0.1;
-        camera.y += (targetCamY - camera.y) * 0.1;
-
-        updateMobs();
-        updateProjectiles();
-        updateParticles();
-        updateTNTs();
-        updateHUD(); // For breath bar
-    }
-
-    function updateTNTs() {
-        for (let i = activeTNTs.length - 1; i >= 0; i--) {
-            let tnt = activeTNTs[i];
-            tnt.timer--;
-            if (tnt.timer % 20 === 0) {
-                // Smoke effect while waiting
-                spawnParticles(tnt.x, tnt.y, '#fff', 1);
-            }
-            if (tnt.timer <= 0) {
-                explode(tnt.x, tnt.y, 4);
-                activeTNTs.splice(i, 1);
-            }
-        }
-    }
-
-    function updateMobs() {
-        if (activeBoss) {
-            // Boss Bar Range Check
-            let distToBoss = Math.abs(player.x - activeBoss.x);
-            let hud = document.getElementById('boss-hud');
-            
-            if (distToBoss < 800 && activeBoss.hp > 0) {
-                hud.style.display = 'block';
-                let pct = (activeBoss.hp / activeBoss.maxHp) * 100;
-                document.getElementById('boss-hp-bar').style.width = pct + '%';
-            } else {
-                hud.style.display = 'none';
-            }
-        }
-
-        for (let i = mobs.length - 1; i >= 0; i--) {
-            let m = mobs[i];
-            
-            let dist = player.x - m.x;
-            let distY = player.y - m.y;
-            let range = 600;
-            
-            // Check Mob Environment (Water/Lava)
-            let mCx = Math.floor((m.x + m.width/2) / TILE_SIZE);
-            let mCy = Math.floor((m.y + m.height/2) / TILE_SIZE);
-            let mBlock = getBlock(mCx, mCy);
-            
-            // Mob Movement Modifiers
-            let speedMult = 1.0;
-            
-            // Water Effect on Mobs
-            if (mBlock === BLOCKS.WATER) {
-                speedMult = 0.5;
-                m.vy = Math.min(m.vy, 2); // Slow fall
-            } 
-            // Lava Effect on Mobs
-            else if (mBlock === BLOCKS.LAVA) {
-                speedMult = 0.1;
-                if (gameTime % 30 === 0) {
-                    m.hp -= 10;
-                    m.hurtTimer = 10;
-                    // Visual feedback
-                    spawnParticles(mCx, mCy, '#ff0000', 2);
-                }
-            }
-
-            if (Math.abs(dist) < range) {
-                if(m.type === 'bat') {
-                    // Bat AI: Swoop
-                    m.vx = (dist > 0 ? 1 : -1) * m.speed;
-                    m.vy = (distY > 0 ? 1 : -1) * 1.5;
-                } else if (m.type === 'boss') {
-                    if (dist > 10) m.vx = m.speed * speedMult;
-                    else if (dist < -10) m.vx = -m.speed * speedMult;
-                    if (m.grounded && Math.random() < 0.02) {
-                        m.vy = m.jump;
-                        shake = 5; 
-                    }
-                } else {
-                    // Standard Walker
-                    if (dist > 10) m.vx = m.speed * speedMult;
-                    else if (dist < -10) m.vx = -m.speed * speedMult;
-                    if (m.vx !== 0 && isBlocked(m) && m.grounded) m.vy = m.jump;
-                }
+        // 엔티티 업데이트
+        this.mobs.forEach((m,i)=>{
+            if(Math.abs(this.p.x - m.x) < 500) {
+                m.vx = (this.p.x > m.x ? 1 : -1) * m.spd;
+                m.vy += GRAVITY;
+                if(this.isBlocked(m) && m.grounded) m.vy = -10;
                 
-                if (checkRectOverlap(player, m)) {
-                    if (gameTime % 20 === 0) {
-                        let dmg = 5 + currentLevel;
-                        if (m.type === 'boss') dmg = 20 + currentLevel;
-                        takeDamage(dmg);
-                        player.vx = (player.x < m.x ? -10 : 10);
-                        player.vy = -5;
-                        shake = 5;
-                    }
-                }
-            } else {
-                if(!m.fly) m.vx *= 0.9;
-            }
+                m.x += m.vx; this.col(m, 'x');
+                m.y += m.vy; m.grounded=false; this.col(m, 'y');
 
-            if(!m.fly) {
-                // Apply Gravity if not flying (and handle fluid physics above)
-                if (mBlock === BLOCKS.WATER) m.vy += 0.1;
-                else m.vy += GRAVITY;
-            }
-            
-            m.x += m.vx;
-            checkEntityCollision(m, 'x');
-            m.y += m.vy;
-            m.grounded = false;
-            checkEntityCollision(m, 'y');
-
-            if (m.hurtTimer > 0) m.hurtTimer--;
-
-            if (m.y > worldHeight * TILE_SIZE + 100) {
-                 mobs.splice(i, 1); 
-            } else if (m.hp <= 0) {
-                spawnParticles(m.x/TILE_SIZE, m.y/TILE_SIZE, m.color, 30);
-                addGold(m.reward);
-                spawnFloatingText(m.x, m.y, `+${m.reward}g`, '#FFD700');
-                if (m.type === 'boss') {
-                    activeBoss = null;
-                    document.getElementById('boss-hud').style.display = 'none';
-                    shake = 20; 
-                }
-                mobs.splice(i, 1);
-            }
-        }
-    }
-
-    function updateProjectiles() {
-        for (let i = projectiles.length - 1; i >= 0; i--) {
-            let p = projectiles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += 0.2; 
-            p.life--;
-
-            let tx = Math.floor(p.x / TILE_SIZE);
-            let ty = Math.floor(p.y / TILE_SIZE);
-            let b = getBlock(tx, ty);
-            // Don't explode on fluid
-            let bDef = BLOCK_DEF[b] || {};
-            if ((b !== BLOCKS.AIR && !bDef.fluid) || p.life <= 0) {
-                explode(tx, ty, 2); 
-                projectiles.splice(i, 1);
-                continue;
-            }
-
-            for (let m of mobs) {
-                if (p.x > m.x && p.x < m.x + m.width && p.y > m.y && p.y < m.y + m.height) {
-                    m.hp -= 30 + (player.damage); 
-                    m.hurtTimer = 10;
-                    spawnParticles(m.x/TILE_SIZE, m.y/TILE_SIZE, '#FF5722', 10);
-                    explode(Math.floor(p.x/TILE_SIZE), Math.floor(p.y/TILE_SIZE), 1.5);
-                    projectiles.splice(i, 1);
-                    break;
+                if(this.rectCol(this.p, m)) {
+                    this.hitP(10);
+                    this.p.vx = Math.sign(this.p.x - m.x) * 10; this.p.vy = -5;
                 }
             }
-        }
-    }
+            if(m.hurt>0) m.hurt--;
+            if(m.hp <= 0) {
+                this.p.gold += m.rew; SFX.coin(); this.showToast(`+${m.rew}G`);
+                this.spawnPart(m.x, m.y, m.c, 10);
+                this.mobs.splice(i,1); this.updHud();
+                if(m.boss) document.getElementById('boss-hud').style.display='none';
+            }
+        });
 
-    function updateParticles() {
-        for (let i = particles.length - 1; i >= 0; i--) {
-            let p = particles[i];
+        // TNT
+        this.tnts.forEach((t,i)=>{
+            t.t--; if(t.t<=0) { this.explode(t.x, t.y, 4); this.tnts.splice(i,1); }
+        });
+
+        // 발사체
+        this.projs.forEach((p,i)=>{
             p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--;
-            if (p.life <= 0) particles.splice(i, 1);
-        }
-        
-        for (let i = weatherParticles.length - 1; i >= 0; i--) {
-            let p = weatherParticles[i];
-            
-            // Move opposite to player for parallax
-            p.x += (p.vx || 0) - player.vx; 
-            p.y += p.vy;
-            
-            if(p.y > height) weatherParticles.splice(i, 1);
-        }
-    }
-
-    function checkRectOverlap(a, b) {
-        return (a.x < b.x + b.width && a.x + a.width > b.x &&
-                a.y < b.y + b.height && a.y + a.height > b.y);
-    }
-
-    function isBlocked(entity) {
-        let tx = Math.floor((entity.x + (entity.vx > 0 ? entity.width + 5 : -5)) / TILE_SIZE);
-        let ty = Math.floor((entity.y + entity.height - 5) / TILE_SIZE);
-        let b = getBlock(tx, ty);
-        let def = BLOCK_DEF[b] || {};
-        return b !== BLOCKS.AIR && !def.fluid;
-    }
-
-    function checkEntityCollision(ent, axis) {
-        let left = Math.floor(ent.x / TILE_SIZE);
-        let right = Math.floor((ent.x + ent.width - 0.01) / TILE_SIZE);
-        let top = Math.floor(ent.y / TILE_SIZE);
-        let bottom = Math.floor((ent.y + ent.height - 0.01) / TILE_SIZE);
-
-        for (let y = top; y <= bottom; y++) {
-            for (let x = left; x <= right; x++) {
-                let b = getBlock(x, y);
-
-                // FIX: Check for AIR before accessing definition
-                if (b === BLOCKS.AIR) continue;
-                
-                // FIX: Ensure definition exists
-                let def = BLOCK_DEF[b];
-                if (!def) continue;
-
-                // Fluid/Spike logic
-                if (def.fluid) continue; // No collision with fluids
-                
-                if (b === BLOCKS.SPIKE) {
-                    if (ent === player) {
-                         takeDamage(10);
-                         ent.vy = -10; 
-                         shake = 5;
+            let tx = Math.floor(p.x/TILE), ty = Math.floor(p.y/TILE);
+            if(this.getB(tx,ty)!==BLOCKS.AIR || p.life<=0) {
+                this.explode(tx, ty, 2); this.projs.splice(i,1);
+            } else {
+                // 몹 충돌
+                for(let m of this.mobs) {
+                    if(this.rectCol({x:p.x, y:p.y, w:5, h:5}, m)) {
+                        m.hp -= (30 + this.p.dmg); m.hurt=10;
+                        this.explode(tx, ty, 1); this.projs.splice(i,1); break;
                     }
-                }
-                
-                if (b !== BLOCKS.GOAL && b !== BLOCKS.SPIKE && !def.alpha) {
-                    if (axis === 'x') {
-                        if (ent.vx > 0) ent.x = x * TILE_SIZE - ent.width;
-                        else if (ent.vx < 0) ent.x = (x + 1) * TILE_SIZE;
-                        ent.vx = 0;
-                    } else {
-                        if (ent.vy > 0) {
-                            ent.y = y * TILE_SIZE - ent.height;
-                            ent.grounded = true;
-                            ent.vy = 0;
-                        } else if (ent.vy < 0) {
-                            ent.y = (y + 1) * TILE_SIZE;
-                            ent.vy = 0;
-                        }
-                    }
-                    return;
                 }
             }
-        }
-    }
+        });
 
-    function takeDamage(amount) {
-        if(player.invulnerable > 0) return;
-        player.hp -= amount;
-        player.invulnerable = 15;
-        damageFlash = 0.6; // Trigger flash
-        updateHUD();
-        spawnFloatingText(player.x, player.y, `-${amount}`, '#ff0000');
-    }
+        // 파티클
+        this.parts.forEach((p,i)=>{
+            p.x+=p.vx; p.y+=p.vy; p.vy+=0.5; p.life--;
+            if(p.life<=0) this.parts.splice(i,1);
+        });
+    },
 
-    function die() {
-        gameState = "DEAD";
-        document.getElementById('overlay').style.display = 'flex';
-        document.getElementById('shop-menu').style.display = 'none';
-        document.getElementById('death-menu').style.display = 'block';
-        document.getElementById('death-level').innerText = currentLevel;
-    }
-
-    function completeLevel() {
-        if(gameState === "SHOP") return;
-        gameState = "SHOP";
-        addGold(100); 
-        document.getElementById('overlay').style.display = 'flex';
-        document.getElementById('shop-menu').style.display = 'block';
-        document.getElementById('death-menu').style.display = 'none';
-        document.getElementById('shop-gold').innerText = player.gold;
-    }
-
-    // --- Interaction ---
-    function handleInteraction(button) {
-        if (player.actionTimer > 0) return;
+    // --- 물리 및 충돌 ---
+    getB(x, y) {
+        if(x<0 || x>=this.ww || y<0 || y>=this.wh) return BLOCKS.AIR;
+        return this.world[y][x];
+    },
+    col(e, axis) {
+        let l = Math.floor(e.x/TILE), r = Math.floor((e.x+e.w-0.01)/TILE);
+        let t = Math.floor(e.y/TILE), b = Math.floor((e.y+e.h-0.01)/TILE);
         
-        let mx = mouse.x + camera.x;
-        let my = mouse.y + camera.y;
-        let tx = Math.floor(mx / TILE_SIZE);
-        let ty = Math.floor(my / TILE_SIZE);
-
-        let dist = Math.hypot(player.x + player.width/2 - mx, player.y + player.height/2 - my);
-
-        let selected = inventory[selectedBlockIndex];
-
-        // Tools (Sword/Wand) work anywhere (ranged) or close (melee)
-        if (button === 0 && (selected === ITEMS.SWORD || selected === ITEMS.WAND)) {
-            if (player.attackTimer <= 0) {
-                 if (selected === ITEMS.SWORD) performAttack();
-                 else shootWand(mx, my);
-                 player.actionTimer = 10;
+        for(let y=t; y<=b; y++) for(let x=l; x<=r; x++) {
+            let id = this.getB(x, y);
+            let def = DEFS[id];
+            if(id===BLOCKS.AIR || (def && def.fluid)) continue;
+            
+            if(axis === 'x') {
+                if(e.vx > 0) e.x = x*TILE - e.w;
+                else e.x = (x+1)*TILE;
+                e.vx = 0;
+            } else {
+                if(e.vy > 0) { e.y = y*TILE - e.h; e.grounded = true; }
+                else e.y = (y+1)*TILE;
+                e.vy = 0;
             }
             return;
         }
+    },
+    isBlocked(e) {
+        let tx = Math.floor((e.x + (e.vx>0?e.w+5:-5))/TILE);
+        let ty = Math.floor((e.y+e.h-5)/TILE);
+        let b = this.getB(tx, ty);
+        return b!==BLOCKS.AIR && !DEFS[b]?.fluid;
+    },
+    rectCol(a, b) { return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; },
+
+    // --- 액션 ---
+    handleTouch(e) {
+        if(this.state !== "PLAY") return;
+        e.preventDefault();
+        let t = e.touches[0];
+        let rect = this.cvs.getBoundingClientRect();
+        let mx = t.clientX - rect.left + this.cam.x;
+        let my = t.clientY - rect.top + this.cam.y;
         
-        // Range Check for Building/Mining
-        if (dist > INTERACTION_RANGE) return;
-
-        player.actionTimer = 8; 
-
-        if (button === 0) { // Mine
-            let current = getBlock(tx, ty);
-            if (current === BLOCKS.TNT) {
-                // If block is TNT, we want to trigger it (ignite)
-                let cost = 0; // Already paid
-                setBlock(tx, ty, BLOCKS.AIR);
-                activeTNTs.push({ x: tx, y: ty, timer: 120 }); // 2 sec delay
-                spawnFloatingText(mx, my, "Ignited!", "#ff5252");
-            }
-            else if (current !== BLOCKS.AIR && current !== BLOCKS.GOAL) {
-                if (player.gold >= 1) {
-                    player.gold -= 1;
-                    updateHUD();
-                    spawnFloatingText(mx, my, "-1g", "#ffff00");
-
-                    let def = BLOCK_DEF[current] || {};
-                    if (def.value) {
-                         addGold(def.value); 
-                         spawnFloatingText(mx, my - 20, `+$${def.value}`, '#FFD700');
-                    }
-                    if (def.color) spawnParticles(tx, ty, def.color);
-                    setBlock(tx, ty, BLOCKS.AIR);
-                } else {
-                    spawnFloatingText(mx, my, "Need Gold!", "#ff0000");
-                }
-            }
-        } else if (button === 2) { // Place
-            if (selected !== ITEMS.SWORD && selected !== ITEMS.WAND) {
-                let px = player.x / TILE_SIZE;
-                let py = player.y / TILE_SIZE;
-                let pw = player.width / TILE_SIZE;
-                let ph = player.height / TILE_SIZE;
-                
-                // Don't place inside player
-                if (!(tx >= px + pw || tx + 1 <= px || ty >= py + ph || ty + 1 <= py)) return;
-                
-                let current = getBlock(tx, ty);
-                let def = BLOCK_DEF[current] || {};
-                
-                // --- Fix: Do not charge gold if placing the same block on itself ---
-                if (current === selected) return;
-
-                if (current === BLOCKS.AIR || def.alpha) {
-                    let cost = 1;
-                    if (selected === BLOCKS.WATER) cost = 5;
-                    else if (selected === BLOCKS.LAVA) cost = 30;
-                    else if (selected === BLOCKS.TNT) cost = 10;
-
-                    if (player.gold >= cost) {
-                        player.gold -= cost;
-                        updateHUD();
-                        spawnFloatingText(mx, my, `-${cost}g`, "#ffff00");
-                        setBlock(tx, ty, selected);
-                    } else {
-                        spawnFloatingText(mx, my, "Need Gold!", "#ff0000");
-                    }
-                }
-            }
-        }
-    }
-
-    function shootWand(mx, my) {
-        let angle = Math.atan2(my - (player.y + 10), mx - (player.x + 10));
-        projectiles.push({
-            x: player.x + 10,
-            y: player.y + 10,
-            vx: Math.cos(angle) * 10,
-            vy: Math.sin(angle) * 10,
-            life: 60
-        });
-    }
-
-    function performAttack() {
-        player.attackTimer = 15;
-        // Hitbox centered on player but wider
-        let reach = 80;
-        let hitX = player.x + player.width/2 - reach/2;
-        if (player.facingRight) hitX = player.x + player.width/2 - 10;
-        else hitX = player.x + player.width/2 - reach + 10;
-
-        let hitY = player.y - 10;
-        let hitW = reach;
-        let hitH = player.height + 20;
-
-        mobs.forEach(m => {
-            if (hitX < m.x + m.width && hitX + hitW > m.x &&
-                hitY < m.y + m.height && hitY + hitH > m.y) {
-                
-                m.hp -= player.damage;
-                m.hurtTimer = 10;
-                m.vy = -5;
-                m.vx = player.facingRight ? 8 : -8;
-                spawnParticles(m.x/TILE_SIZE, m.y/TILE_SIZE, '#fff', 5);
-                spawnFloatingText(m.x, m.y, player.damage, '#fff');
-                shake = 2; 
-            }
-        });
-    }
-
-    function explode(cx, cy, radius) {
-        setBlock(cx, cy, BLOCKS.AIR);
-        spawnParticles(cx, cy, '#ff0000', 30);
-        shake = radius * 2; 
+        // 아이템 사용
+        let item = this.inv[this.slot];
+        let idef = DEFS[item];
         
-        let r = Math.ceil(radius);
-        // Ensure bounds are integers
-        for (let y = cy - r; y <= cy + r; y++) {
-            for (let x = cx - r; x <= cx + r; x++) {
-                if ((x-cx)*(x-cx) + (y-cy)*(y-cy) <= radius*radius) {
-                    let b = getBlock(x,y);
-                    if (b !== BLOCKS.BRICK && b !== BLOCKS.GOAL) {
-                        setBlock(x, y, BLOCKS.AIR);
-                        if (Math.random() > 0.5) spawnParticles(x, y, '#555', 2);
+        if(idef && idef.tool) {
+            if(this.p.inv > 0) return;
+            this.p.inv = 15;
+            if(item === ITEMS.SWORD) {
+                // 근접 공격
+                let hitBox = {x: this.p.x + (this.p.dir===1?0:-60), y:this.p.y, w:80, h:50};
+                this.mobs.forEach(m=>{
+                    if(this.rectCol(hitBox, m)) {
+                        m.hp -= this.p.dmg; m.hurt=10; m.vy=-5;
+                        this.spawnPart(m.x, m.y, '#fff', 5); SFX.hit();
                     }
-                }
+                });
+            } else {
+                // 완드
+                let ang = Math.atan2(my-(this.p.y+20), mx-(this.p.x+14));
+                this.projs.push({x:this.p.x+14, y:this.p.y+20, vx:Math.cos(ang)*10, vy:Math.sin(ang)*10, life:50});
+                SFX.hit();
+            }
+            return;
+        }
+
+        // 블록 상호작용
+        let tx = Math.floor(mx/TILE), ty = Math.floor(my/TILE);
+        let dist = Math.hypot((this.p.x+14)-mx, (this.p.y+19)-my);
+        if(dist > 200) return;
+
+        if(this.mode === "MINE") {
+            let b = this.getB(tx, ty);
+            if(b === BLOCKS.TNT) { this.world[ty][tx]=BLOCKS.AIR; this.tnts.push({x:tx, y:ty, t:100}); }
+            else if(b!==BLOCKS.AIR && b!==BLOCKS.GOAL) {
+                let def = DEFS[b];
+                if(this.p.gold >= 1) {
+                    this.p.gold--;
+                    if(def.val) { this.p.gold += def.val; this.showToast(`+${def.val}G`); SFX.coin(); }
+                    this.spawnPart(tx*TILE, ty*TILE, def.c, 5);
+                    this.world[ty][tx] = BLOCKS.AIR;
+                    this.updHud();
+                } else this.showToast("골드 부족!");
+            }
+        } else {
+            // BUILD
+            if(this.getB(tx, ty) === BLOCKS.AIR) {
+                let cost = (item===BLOCKS.WATER?5:1);
+                if(this.p.gold >= cost) {
+                    this.p.gold -= cost;
+                    this.world[ty][tx] = item;
+                    this.updHud();
+                } else this.showToast("골드 부족!");
             }
         }
-        
-        // Damage Mobs
-        mobs.forEach(m => {
-            let dx = (m.x/TILE_SIZE) - cx;
-            let dy = (m.y/TILE_SIZE) - cy;
-            let dist = Math.sqrt(dx*dx + dy*dy);
-            
-            if (dist < radius + 1) {
-                // Damage based on distance
-                let damageFactor = 1 - (dist / (radius + 2)); 
-                if(damageFactor < 0) damageFactor = 0;
-                m.hp -= 50 * damageFactor; 
-                m.vy = -10;
+    },
+
+    hitP(dmg) {
+        if(this.p.inv>0) return;
+        this.p.hp -= dmg; this.p.inv=30; this.shake=5; SFX.hit(); this.updHud();
+    },
+
+    explode(cx, cy, r) {
+        SFX.exp(); this.shake=10; this.spawnPart(cx*TILE, cy*TILE, '#F00', 20);
+        let rad = Math.ceil(r);
+        for(let y=cy-rad; y<=cy+rad; y++) for(let x=cx-rad; x<=cx+rad; x++) {
+            if((x-cx)**2 + (y-cy)**2 <= r**2) {
+                if(this.getB(x,y)!==BLOCKS.GOAL) if(this.world[y]) this.world[y][x]=BLOCKS.AIR;
             }
+        }
+        this.mobs.forEach(m=>{
+            if(Math.hypot(m.x/TILE-cx, m.y/TILE-cy) < r) { m.hp-=50; m.hurt=10; }
         });
+    },
 
-        // Damage Player
-        let pdx = (player.x/TILE_SIZE) - cx;
-        let pdy = (player.y/TILE_SIZE) - cy;
-        let pDist = Math.sqrt(pdx*pdx + pdy*pdy);
-        if (pDist < radius + 1) {
-            let damageFactor = 1 - (pDist / (radius + 2));
-            takeDamage(Math.floor(25 * damageFactor));
-            player.vx += (pdx / pDist) * 10; // Knockback
-            player.vy += (pdy / pDist) * 10;
-        }
-    }
+    die() {
+        this.state = "DEAD";
+        document.getElementById('overlay').style.display = 'flex';
+        document.getElementById('p-dead').style.display = 'block';
+    },
 
-    function spawnParticles(tx, ty, color, count = 5) {
-        for(let i=0; i<count; i++) {
-            particles.push({
-                x: tx * TILE_SIZE + TILE_SIZE/2,
-                y: ty * TILE_SIZE + TILE_SIZE/2,
-                vx: (Math.random() - 0.5) * 8,
-                vy: (Math.random() - 0.5) * 8,
-                life: 20 + Math.random() * 20,
-                color: color,
-                size: 4 + Math.random() * 4
-            });
-        }
-    }
+    win() {
+        this.state = "SHOP";
+        this.p.gold += 100;
+        localStorage.setItem('vq_v2_save', JSON.stringify({l:this.lvl, p:this.p, i:this.inv}));
+        document.getElementById('overlay').style.display = 'flex';
+        document.getElementById('p-shop').style.display = 'block';
+        this.showToast("저장됨");
+    },
     
-    let floatTexts = [];
-    function spawnFloatingText(x, y, text, color) {
-        floatTexts.push({ x, y, text, color, life: 40, vy: -1 });
-    }
+    restart() { this.p.hp=this.p.max; this.start(false); },
+    nextLevel() { this.lvl++; this.start(false); },
 
-    // --- Save/Load ---
-    function saveGame() {
-        const data = {
-            level: currentLevel,
-            player: {
-                hp: player.hp,
-                maxHp: player.maxHp,
-                gold: player.gold,
-                speed: player.speed,
-                damage: player.damage,
-                hasWand: player.hasWand
-            },
-            inventory: inventory
+    // --- 유틸 ---
+    spawnMob(x, y, type) {
+        const stats = {
+            'SLIME': {w:30, h:20, hp:30, spd:2, rew:10, c:'#76ff03'},
+            'ZOMBIE': {w:28, h:38, hp:50, spd:1.5, rew:20, c:'#2e7d32'},
+            'BOSS': {w:80, h:80, hp:500, spd:3, rew:500, c:'#E91E63', boss:true}
         };
-        const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `voxel_quest_lvl${currentLevel}.json`;
-        a.click();
-    }
-
-    function loadGame(input) {
-        const file = input.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                currentLevel = data.level;
-                player.hp = data.player.hp;
-                player.maxHp = data.player.maxHp;
-                player.gold = data.player.gold;
-                player.speed = data.player.speed;
-                player.damage = data.player.damage;
-                player.hasWand = data.player.hasWand;
-                inventory = data.inventory;
-                
-                generateLevel(currentLevel);
-                setupUI(); // Refresh slots (wand)
-                updateHUD();
-                
-                // Close menu
-                document.getElementById('overlay').style.display = 'none';
-            } catch(err) {
-                alert("Invalid Save File");
-            }
-        };
-        reader.readAsText(file);
-    }
-
-    // --- Shop ---
-    function addGold(amount) {
-        player.gold += amount;
-        updateHUD();
-    }
-
-    function updateHUD() {
-        document.getElementById('ui-level').innerText = currentLevel;
-        document.getElementById('ui-gold').innerText = Math.floor(player.gold);
-        document.getElementById('ui-hp').innerText = Math.floor(player.hp);
-        document.getElementById('ui-max-hp').innerText = player.maxHp;
+        let s = stats[type];
+        this.mobs.push({x, y, vx:0, vy:0, w:s.w, h:s.h, hp:s.hp+this.lvl*10, max:s.hp+this.lvl*10, spd:s.spd, rew:s.rew, c:s.c, boss:s.boss, hurt:0, grounded:false});
+    },
+    spawnPart(x, y, c, n) {
+        for(let i=0; i<n; i++) this.parts.push({x:x+20, y:y+20, vx:(Math.random()-.5)*10, vy:(Math.random()-.5)*10, c, life:30, s:Math.random()*5+2});
+    },
+    buy(t) {
+        let cost=0;
+        if(t==='heal'){cost=50; if(this.p.gold>=cost) this.p.hp=Math.min(this.p.hp+50, this.p.max);}
+        if(t==='dmg'){cost=200; if(this.p.gold>=cost) this.p.dmg+=10;}
+        if(t==='spd'){cost=150; if(this.p.gold>=cost) this.p.spd++;}
+        if(t==='hp'){cost=300; if(this.p.gold>=cost) {this.p.max+=50; this.p.hp+=50;}}
+        if(t==='wand'){cost=500; if(this.p.gold>=cost && !this.p.wand) {this.p.wand=true; this.inv.push(ITEMS.WAND); this.uiInv();}}
+        if(this.p.gold>=cost) { this.p.gold-=cost; SFX.coin(); this.updHud(); } else this.showToast("골드 부족!");
+    },
+    
+    // UI 업데이트
+    updHud() {
+        document.getElementById('ui-lv').innerText = this.lvl;
+        document.getElementById('ui-gold').innerText = Math.floor(this.p.gold);
+        document.getElementById('hp-bar').style.width = Math.max(0, this.p.hp/this.p.max*100)+'%';
+        let airDiv = document.getElementById('air-con');
+        if(this.p.air < 100) { airDiv.style.display='block'; document.getElementById('air-bar').style.width=this.p.air+'%'; }
+        else airDiv.style.display='none';
         
-        // Update HP Bar
-        let hpPct = (player.hp / player.maxHp) * 100;
-        document.getElementById('ui-hp-bar').style.width = Math.max(0, hpPct) + '%';
-
-        let breathBar = document.getElementById('breath-bar');
-        if (player.inWater) {
-             document.getElementById('breath-container').style.display = 'block';
-             breathBar.style.width = player.breath + '%';
-        } else {
-             document.getElementById('breath-container').style.display = 'none';
-        }
-    }
-
-    window.buyItem = function(type) {
-        let cost = 0;
-        if (type === 'heal') cost = 50;
-        if (type === 'damage') cost = 200;
-        if (type === 'speed') cost = 150;
-        if (type === 'maxhp') cost = 300;
-        if (type === 'wand') cost = 500;
-
-        if (player.gold >= cost) {
-            if (type === 'wand' && player.hasWand) return; 
-
-            player.gold -= cost;
-            if (type === 'heal') player.hp = Math.min(player.hp + 50, player.maxHp);
-            if (type === 'damage') player.damage += 10;
-            if (type === 'speed') player.speed += 1;
-            if (type === 'maxhp') { player.maxHp += 50; player.hp += 50; }
-            if (type === 'wand') {
-                player.hasWand = true;
-                inventory.push(ITEMS.WAND);
-                setupUI();
-                document.getElementById('btn-wand').disabled = true;
-                document.getElementById('btn-wand').innerHTML = "✅ Owned";
-            }
-
-            updateHUD();
-            document.getElementById('shop-gold').innerText = player.gold;
-        } else {
-            alert("Not enough gold!");
-        }
-    };
-
-    window.nextLevel = function() {
-        currentLevel++;
-        generateLevel(currentLevel);
-    };
-
-    window.restartGame = function() {
-        player.hp = player.maxHp;
-        generateLevel(currentLevel);
-    };
-
-    // --- Utility ---
-    function getBlock(x, y) {
-        x = Math.floor(x);
-        y = Math.floor(y);
-        if (x >= 0 && x < worldWidth && y >= 0 && y < worldHeight) return world[y][x];
-        return BLOCKS.AIR;
-    }
-    function setBlock(x, y, id) {
-        x = Math.floor(x);
-        y = Math.floor(y);
-        if (x >= 0 && x < worldWidth && y >= 0 && y < worldHeight) world[y][x] = id;
-    }
-
-    function setupUI() {
-        const ui = document.getElementById('ui-layer');
-        ui.innerHTML = '';
-        inventory.forEach((item, index) => {
-            const slot = document.createElement('div');
-            slot.className = 'slot';
-            if (index === selectedBlockIndex) slot.classList.add('active');
-            slot.onclick = () => selectSlot(index);
-            
-            const key = document.createElement('div');
-            key.className = 'slot-key';
-            key.innerText = index + 1;
-            slot.appendChild(key);
-
-            let def = BLOCK_DEF[item];
-            if (def.icon) {
-                 const icon = document.createElement('div');
-                 icon.className = 'item-icon';
-                 icon.innerText = def.icon;
-                 slot.appendChild(icon);
-            } else {
-                const preview = document.createElement('div');
-                preview.className = 'block-preview';
-                preview.style.backgroundColor = def.color;
-                if (def.top) preview.style.borderTop = `5px solid ${def.top}`;
-                slot.appendChild(preview);
-            }
-            ui.appendChild(slot);
+        let boss = this.mobs.find(m=>m.boss);
+        let bHud = document.getElementById('boss-hud');
+        if(boss && Math.abs(this.p.x - boss.x) < 600) {
+            bHud.style.display = 'block';
+            document.getElementById('boss-fill').style.width = (boss.hp/boss.max*100)+'%';
+        } else bHud.style.display = 'none';
+    },
+    uiInv() {
+        let d = document.getElementById('inv-wrap'); d.innerHTML = '';
+        this.inv.forEach((id, i)=>{
+            let el = document.createElement('div');
+            el.className = 'slot' + (i===this.slot?' active':'');
+            let def = DEFS[id];
+            if(def.tool) el.innerHTML = `<span class="icon">${def.icon}</span>`;
+            else el.innerHTML = `<div class="b-preview" style="background:${def.c}; ${def.top?`border-top:3px solid ${def.top}`:''}"></div>`;
+            el.onclick = ()=>{ this.slot=i; this.uiInv(); };
+            d.appendChild(el);
         });
-    }
+    },
+    showToast(msg) {
+        let el = document.getElementById('toast');
+        el.innerText = msg; el.style.opacity=1;
+        setTimeout(()=>el.style.opacity=0, 1500);
+    },
 
-    function selectSlot(index) {
-        if (index < 0 || index >= inventory.length) return;
-        selectedBlockIndex = index;
-        const slots = document.querySelectorAll('.slot');
-        slots.forEach(s => s.classList.remove('active'));
-        slots[index].classList.add('active');
-    }
-
-    // --- Drawing ---
-    function draw() {
-        let timeNorm = (Math.sin(gameTime * 0.001) + 1) / 2;
-        let r, g, b;
+    // --- 그리기 ---
+    draw() {
+        // 배경
+        this.ctx.fillStyle = '#87CEEB';
+        this.ctx.fillRect(0, 0, this.w, this.h);
         
-        if (weather === "RAIN") { // Darker Sky
-            r = 50; g = 60; b = 80;
-        } else {
-            r = Math.floor(135 * timeNorm); g = Math.floor(206 * timeNorm); b = Math.floor(235 * timeNorm);
-            r = Math.max(20, r); g = Math.max(20, g); b = Math.max(50, b);
-        }
+        this.ctx.save();
+        // 카메라 (정수화로 떨림 방지)
+        let cx = Math.floor(this.cam.x), cy = Math.floor(this.cam.y);
+        this.ctx.translate(-cx + (Math.random()-.5)*this.shake, -cy + (Math.random()-.5)*this.shake);
         
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-        ctx.fillRect(0, 0, width, height);
+        // 블록 렌더링 범위 (최적화)
+        let sc = Math.floor(cx/TILE), ec = sc + Math.ceil(this.w/TILE) + 1;
+        let sr = Math.floor(cy/TILE), er = sr + Math.ceil(this.h/TILE) + 1;
 
-        // Sun
-        if (weather === "NONE") {
-            ctx.fillStyle = timeNorm > 0.5 ? '#FFD700' : '#F4F6F0';
-            let sunY = height/2 + Math.cos(gameTime * 0.001) * (height/2 + 50);
-            let sunX = width/2 + Math.sin(gameTime * 0.001) * (width/2);
-            ctx.beginPath(); ctx.arc(sunX, sunY, 40, 0, Math.PI * 2); ctx.fill();
-        }
-
-        // Parallax Mountains (Improved)
-        ctx.fillStyle = weather === "RAIN" ? `rgba(0, 0, 0, 0.4)` : `rgba(0, 0, 0, 0.2)`;
-        ctx.beginPath();
-        ctx.moveTo(0, height);
-        // Use finer step for smooth curve
-        for(let i=0; i<=width; i+=10) {
-            // Parallax effect: Scale camera x to shift noise slowly
-            let wx = i + camera.x * 0.1; 
-            let mh = 150 + Math.sin(wx * 0.005) * 50 + Math.sin(wx * 0.02) * 20; 
-            ctx.lineTo(i, height - mh);
-        }
-        ctx.lineTo(width, height);
-        ctx.fill();
-
-        ctx.save();
-        // Screen Shake
-        let shakeX = (Math.random() - 0.5) * shake;
-        let shakeY = (Math.random() - 0.5) * shake;
-        ctx.translate(-Math.floor(camera.x) + shakeX, -Math.floor(camera.y) + shakeY);
-
-        // Blocks
-        const startCol = Math.floor(camera.x / TILE_SIZE);
-        const endCol = startCol + (width / TILE_SIZE) + 2;
-        const startRow = Math.floor(camera.y / TILE_SIZE);
-        const endRow = startRow + (height / TILE_SIZE) + 2;
-
-        for (let y = Math.max(0, startRow); y < Math.min(worldHeight, endRow); y++) {
-            for (let x = Math.max(0, startCol); x < Math.min(worldWidth, endCol); x++) {
-                let type = world[y][x];
-                if (type !== BLOCKS.AIR) {
-                    let def = BLOCK_DEF[type];
-                    let px = x * TILE_SIZE;
-                    let py = y * TILE_SIZE;
+        for(let y=Math.max(0, sr); y<Math.min(this.wh, er); y++) {
+            if(!this.world[y]) continue; 
+            for(let x=Math.max(0, sc); x<Math.min(this.ww, ec); x++) {
+                let b = this.world[y][x];
+                if(b !== BLOCKS.AIR) {
+                    let d = DEFS[b];
+                    let px = x*TILE, py = y*TILE;
+                    if(d.a) this.ctx.globalAlpha = d.a;
+                    this.ctx.fillStyle = d.c;
                     
-                    if (type === BLOCKS.WATER) {
-                        // Check if surface
-                        let isSurface = getBlock(x, y-1) === BLOCKS.AIR;
-                        
-                        ctx.fillStyle = def.color;
-                        if (isSurface) {
-                            // Draw water body lower
-                            ctx.fillRect(px, py + 6, TILE_SIZE, TILE_SIZE - 6);
-                            
-                            // Wave effect in the gap
-                            ctx.fillStyle = "rgba(255,255,255,0.4)";
-                            let wave = Math.sin((x + gameTime * 0.1)) * 3;
-                            ctx.fillRect(px, py + 4 + wave, TILE_SIZE, 2);
-                        } else {
-                            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                            // Internal glimmer
-                             if ((x+y+Math.floor(gameTime/20)) % 7 === 0) {
-                                ctx.fillStyle = "rgba(255,255,255,0.2)";
-                                ctx.fillRect(px + 10, py + 10, 4, 4);
-                             }
-                        }
-                    } else if (type === BLOCKS.LAVA) {
-                        ctx.fillStyle = def.color;
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                        // Bubbles
-                        ctx.fillStyle = "#FFEB3B";
-                        let bubbleY = (py + gameTime * 0.5 + x*10) % TILE_SIZE;
-                        ctx.fillRect(px + (x*7)%20 + 5, py + TILE_SIZE - bubbleY, 4, 4);
-                    } else if (type === BLOCKS.TNT) {
-                        // Regular TNT
-                        ctx.fillStyle = def.color;
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                        // Label
-                        ctx.fillStyle = "white";
-                        ctx.font = "12px Arial";
-                        ctx.textAlign = "center";
-                        ctx.fillText("TNT", px + TILE_SIZE/2, py + TILE_SIZE/2 + 4);
-                        ctx.strokeStyle = "rgba(0,0,0,0.2)";
-                        ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                    if(b===BLOCKS.WATER && (!this.world[y-1] || this.world[y-1][x]===BLOCKS.AIR)) {
+                         this.ctx.fillRect(px, py+5, TILE, TILE-5);
+                         this.ctx.fillStyle = 'rgba(255,255,255,0.4)'; this.ctx.fillRect(px, py+5, TILE, 3);
+                    } else if(d.spike) {
+                         this.ctx.beginPath(); this.ctx.moveTo(px, py+TILE); this.ctx.lineTo(px+TILE/2, py); this.ctx.lineTo(px+TILE, py+TILE); this.ctx.fill();
                     } else {
-                        if (def.alpha) ctx.globalAlpha = def.alpha;
-                        ctx.fillStyle = def.color;
-                        
-                        if (def.spike) {
-                             ctx.beginPath();
-                             ctx.moveTo(px, py + TILE_SIZE);
-                             ctx.lineTo(px + TILE_SIZE/2, py);
-                             ctx.lineTo(px + TILE_SIZE, py + TILE_SIZE);
-                             ctx.fill();
-                        } else if (type === BLOCKS.GOAL) {
-                            ctx.fillStyle = '#1A237E'; 
-                            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                            ctx.fillStyle = '#000';
-                            ctx.beginPath();
-                            ctx.ellipse(px + TILE_SIZE/2, py + TILE_SIZE/2, 12, 16, 0, 0, Math.PI*2);
-                            ctx.fill();
-                            let pulse = Math.sin(gameTime * 0.1);
-                            ctx.fillStyle = `rgba(0, 229, 255, ${0.6 + pulse * 0.2})`; 
-                            ctx.beginPath();
-                            ctx.ellipse(px + TILE_SIZE/2, py + TILE_SIZE/2, 8 + pulse, 12 - pulse, gameTime * 0.05, 0, Math.PI*2);
-                            ctx.fill();
-                        } else {
-                            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                            if (def.top) { 
-                                // Snowy grass check
-                                ctx.fillStyle = (weather === "SNOW" && type === BLOCKS.GRASS) ? '#ffffff' : def.top; 
-                                ctx.fillRect(px, py, TILE_SIZE, 8); 
-                            }
-                            if (def.speckle) { 
-                                ctx.fillStyle = def.speckle; 
-                                ctx.fillRect(px+10, py+10, 6, 6); 
-                            }
-                        }
-                        ctx.globalAlpha = 1.0;
+                        this.ctx.fillRect(px, py, TILE, TILE);
+                        if(d.top) { this.ctx.fillStyle=d.top; this.ctx.fillRect(px, py, TILE, 8); }
+                        if(d.dot) { this.ctx.fillStyle=d.dot; this.ctx.fillRect(px+10, py+10, 10, 10); }
+                        if(d.txt) { this.ctx.fillStyle='white'; this.ctx.font='10px arial'; this.ctx.fillText(d.txt, px+8, py+24); }
                     }
+                    this.ctx.globalAlpha = 1.0;
                 }
             }
         }
         
-        // Render Active TNTs
-        activeTNTs.forEach(tnt => {
-            let px = tnt.x * TILE_SIZE;
-            let py = tnt.y * TILE_SIZE;
-            
-            // Flashing Effect
-            if (Math.floor(gameTime / 5) % 2 === 0) {
-                ctx.fillStyle = "#fff";
-            } else {
-                ctx.fillStyle = "#d32f2f";
-            }
-            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-            
-            ctx.fillStyle = "black";
-            ctx.font = "12px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("TNT", px + TILE_SIZE/2, py + TILE_SIZE/2 + 4);
+        // 렌더링: TNT
+        this.tnts.forEach(t=>{
+            this.ctx.fillStyle = (Math.floor(Date.now()/100)%2===0) ? 'white' : '#D32F2F';
+            this.ctx.fillRect(t.x*TILE, t.y*TILE, TILE, TILE);
         });
 
-        // Mobs
-        mobs.forEach(m => {
-            if (m.hurtTimer > 0) ctx.fillStyle = '#fff';
-            else ctx.fillStyle = m.color;
-            ctx.fillRect(m.x, m.y, m.width, m.height);
-            // Health Bar
-            ctx.fillStyle = 'red';
-            ctx.fillRect(m.x, m.y - 10, m.width, 4);
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(m.x, m.y - 10, m.width * (m.hp / m.maxHp), 4);
-            
-            // Face
-            ctx.fillStyle = 'black';
-            if (m.type === 'bat') {
-                 // Wings
-                 ctx.beginPath();
-                 ctx.moveTo(m.x, m.y+10);
-                 ctx.lineTo(m.x-10, m.y-5);
-                 ctx.lineTo(m.x, m.y+5);
-                 ctx.fill();
-                 ctx.beginPath();
-                 ctx.moveTo(m.x+m.width, m.y+10);
-                 ctx.lineTo(m.x+m.width+10, m.y-5);
-                 ctx.lineTo(m.x+m.width, m.y+5);
-                 ctx.fill();
-            } else if (m.type === 'boss') {
-                 ctx.fillRect(m.x + 10, m.y + 20, 15, 15);
-                 ctx.fillRect(m.x + m.width - 25, m.y + 20, 15, 15);
-                 ctx.fillRect(m.x + 20, m.y + 50, m.width - 40, 10);
-            } else {
-                 ctx.fillRect(m.x + 5, m.y + 8, 4, 4);
-                 ctx.fillRect(m.x + m.width - 9, m.y + 8, 4, 4);
-            }
+        // 렌더링: 몬스터
+        this.mobs.forEach(m=>{
+            this.ctx.fillStyle = m.hurt>0?'white':m.c;
+            this.ctx.fillRect(m.x, m.y, m.w, m.h);
+            // 체력바
+            this.ctx.fillStyle = '#333'; this.ctx.fillRect(m.x, m.y-8, m.w, 4);
+            this.ctx.fillStyle = '#0f0'; this.ctx.fillRect(m.x, m.y-8, m.w*(m.hp/m.max), 4);
         });
 
-        // Projectiles
-        projectiles.forEach(p => {
-            ctx.fillStyle = '#FF5722';
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
-            ctx.fill();
-        });
-
-        // Player
-        ctx.fillStyle = '#FFC107'; 
-        ctx.fillRect(player.x, player.y, player.width, player.height);
-        ctx.fillStyle = '#1E88E5'; ctx.fillRect(player.x, player.y + 16, player.width, 12);
-        ctx.fillStyle = '#43A047'; ctx.fillRect(player.x, player.y + 28, player.width, 10);
+        // 렌더링: 플레이어
+        this.ctx.fillStyle = '#FFC107'; this.ctx.fillRect(this.p.x, this.p.y, this.p.w, this.p.h);
+        this.ctx.fillStyle = '#1976D2'; this.ctx.fillRect(this.p.x, this.p.y+20, this.p.w, 18);
+        this.ctx.fillStyle = 'black';
+        let off = this.p.dir===1 ? 4 : -4;
+        this.ctx.fillRect(this.p.x+14+off-6, this.p.y+8, 4, 4); this.ctx.fillRect(this.p.x+14+off+2, this.p.y+8, 4, 4);
         
-        ctx.fillStyle = 'black';
-        let faceOffset = player.facingRight ? 4 : -4;
-        ctx.fillRect(player.x + 14 + faceOffset - 6, player.y + 8, 4, 4); 
-        ctx.fillRect(player.x + 14 + faceOffset + 2, player.y + 8, 4, 4);
-
-        // Sword / Wand
-        let currentItem = inventory[selectedBlockIndex];
-        if (currentItem === ITEMS.SWORD || currentItem === ITEMS.WAND) {
-            ctx.save();
-            ctx.translate(player.x + player.width/2, player.y + 20);
-            if (!player.facingRight) ctx.scale(-1, 1);
-            let rot = 0;
-            if (player.attackTimer > 0) rot = -Math.PI / 3 + (player.attackTimer / 15) * Math.PI;
-            
-            if (currentItem === ITEMS.WAND) {
-                 rot = -Math.PI / 4; // Static hold
-                 if (mouse.leftDown) rot = -Math.PI / 6;
-            }
-
-            ctx.rotate(rot);
-            let def = BLOCK_DEF[currentItem];
-            ctx.fillStyle = def.color; 
-            ctx.fillRect(10, -4, 20, 6); 
-            ctx.fillStyle = '#5d4037'; ctx.fillRect(0, -2, 10, 4); 
-            ctx.restore();
+        // 도구
+        let item = this.inv[this.slot];
+        let idef = DEFS[item];
+        if(idef.tool) {
+            this.ctx.save(); this.ctx.translate(this.p.x+14, this.p.y+20);
+            if(this.p.dir===-1) this.ctx.scale(-1, 1);
+            if(this.p.inv > 5) this.ctx.rotate(-1);
+            this.ctx.fillStyle = idef.c; this.ctx.fillRect(10, -4, 24, 6);
+            this.ctx.restore();
         }
 
-        // Particles
-        particles.forEach(p => {
-            ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, p.size, p.size);
+        // 파티클
+        this.parts.forEach(p=>{
+            this.ctx.fillStyle = p.c; this.ctx.fillRect(p.x, p.y, p.s, p.s);
         });
-        
-        // Interaction Range Ring (Subtle)
-        if (gameState === "PLAY") {
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-            ctx.beginPath();
-            ctx.arc(player.x + player.width/2, player.y + player.height/2, INTERACTION_RANGE, 0, Math.PI*2);
-            ctx.stroke();
-        }
-        
-        for (let i = floatTexts.length - 1; i >= 0; i--) {
-            let ft = floatTexts[i];
-            ctx.fillStyle = ft.color;
-            ctx.font = "bold 16px Arial";
-            ctx.fillText(ft.text, ft.x, ft.y);
-            ft.y += ft.vy;
-            ft.life--;
-            if (ft.life <= 0) floatTexts.splice(i, 1);
-        }
 
-        // Selection Box
-        let mx = mouse.x + camera.x;
-        let my = mouse.y + camera.y;
-        let sx = Math.floor(mx / TILE_SIZE) * TILE_SIZE;
-        let sy = Math.floor(my / TILE_SIZE) * TILE_SIZE;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
-
-        ctx.restore();
-
-        // Weather Overlay (Static relative to screen)
-        if (weather !== "NONE") {
-            ctx.fillStyle = weather === "RAIN" ? "#64B5F6" : "#FFF";
-            weatherParticles.forEach(p => {
-                // Wrap horizontal
-                if (p.x > width) p.x = 0;
-                if (p.x < 0) p.x = width;
-                
-                if (p.type === 'rain') {
-                    ctx.fillRect(p.x, p.y, 2, 10);
-                } else {
-                    ctx.fillRect(p.x, p.y, 4, 4);
-                }
-            });
-        }
-
-        // Damage Flash Overlay
-        if (damageFlash > 0) {
-            ctx.fillStyle = `rgba(255, 0, 0, ${damageFlash})`;
-            ctx.fillRect(0, 0, width, height);
-            damageFlash -= 0.02; // Fade out
-        }
+        this.ctx.restore();
     }
+};
 
-    init();
+window.onload = ()=>Game.init();
 
 </script>
 </body>
