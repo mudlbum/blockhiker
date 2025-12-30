@@ -3,1000 +3,738 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Voxel Quest: Original Mobile</title>
+    <title>Voxel Quest: True Complete Edition</title>
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #222;
-            font-family: 'Segoe UI', sans-serif;
-            user-select: none;
-            -webkit-user-select: none;
-            touch-action: none; /* 모바일 제스처 차단 */
-        }
+        body { margin: 0; overflow: hidden; background: #222; font-family: 'Segoe UI', sans-serif; user-select: none; touch-action: none; -webkit-user-select: none; }
         canvas { display: block; touch-action: none; }
 
         /* UI 레이어 */
-        #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-        }
-
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
         /* HUD */
         #hud {
             position: absolute; top: 10px; left: 10px;
-            color: white; font-weight: bold; font-size: 14px;
-            text-shadow: 1px 1px 0 #000;
-            display: flex; flex-direction: column; gap: 4px;
-            pointer-events: none;
+            color: white; font-weight: bold; font-size: 16px;
+            text-shadow: 2px 2px 0 #000; display: flex; flex-direction: column; gap: 6px; pointer-events: none;
         }
-        .stat-box { background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 4px; border: 1px solid #555; }
-        .hp-bar-bg { width: 120px; height: 10px; background: #330000; border: 1px solid #fff; margin-top:2px; }
-        .hp-bar-fill { width: 100%; height: 100%; background: #ff5252; transition: width 0.1s; }
-        .breath-bg { display:none; border-color:#00B0FF; margin-top:2px; }
-        .breath-fill { width:100%; height:6px; background:#00B0FF; }
+        .stat-card {
+            background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.8) 100%);
+            padding: 10px 14px; border-radius: 8px; border: 2px solid #555;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+        }
+        .hp-bar-bg { width: 150px; height: 14px; background: #330000; border: 1px solid #fff; margin-top: 4px; position: relative; }
+        .hp-bar-fill { height: 100%; background: linear-gradient(90deg, #ff5252, #d50000); transition: width 0.1s; }
+        .breath-bar { height: 6px; background: #00B0FF; margin-top: 2px; display: none; }
 
-        /* 보스 체력바 */
+        /* 보스 HUD */
         #boss-hud {
-            position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
-            width: 60%; max-width: 300px; display: none; text-align: center;
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            width: 300px; display: none; text-align: center;
         }
-        .boss-name { color: #FF4081; font-weight: bold; text-shadow: 1px 1px 0 #000; margin-bottom: 2px; }
-        .boss-bar-bg { width: 100%; height: 12px; background: #222; border: 2px solid white; }
-        .boss-bar-fill { width: 100%; height: 100%; background: #FF4081; transition: width 0.2s; }
+        .boss-title { color: #FF4081; font-weight: bold; text-shadow: 2px 2px 0 #000; margin-bottom: 4px; font-size: 18px; }
+        .boss-bar-bg { width: 100%; height: 16px; background: #222; border: 2px solid #fff; box-shadow: 0 0 15px rgba(0,0,0,0.7); }
+        .boss-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #FF4081, #C51162); transition: width 0.2s; }
 
-        /* 인벤토리 (가로 스크롤) */
+        /* 인벤토리 */
         #inventory-bar {
             position: absolute; top: 10px; right: 10px;
-            display: flex; gap: 5px;
-            width: 180px; overflow-x: auto;
-            background: rgba(0,0,0,0.6); padding: 5px; border-radius: 8px;
-            pointer-events: auto; white-space: nowrap;
-            -webkit-overflow-scrolling: touch;
+            display: flex; gap: 6px; width: 240px; overflow-x: auto;
+            background: rgba(0,0,0,0.7); padding: 8px; border-radius: 12px;
+            pointer-events: auto; white-space: nowrap; -webkit-overflow-scrolling: touch;
+            border: 2px solid #555;
         }
         #inventory-bar::-webkit-scrollbar { display: none; }
         .slot {
-            flex: 0 0 40px; width: 40px; height: 40px;
-            background: rgba(255,255,255,0.1); border: 2px solid #555;
+            flex: 0 0 48px; width: 48px; height: 48px;
+            background: rgba(255,255,255,0.1); border: 2px solid #444;
             display: flex; justify-content: center; align-items: center;
-            border-radius: 6px; position: relative;
+            border-radius: 8px; position: relative;
         }
-        .slot.active { border-color: #FFD700; background: rgba(255,215,0,0.2); transform: scale(1.05); }
-        .slot-icon { font-size: 20px; }
-        .slot-block { width: 20px; height: 20px; box-shadow: 1px 1px 2px #000; }
+        .slot.active { border-color: #FFD700; background: rgba(255,215,0,0.25); transform: scale(1.1); box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); z-index:10; }
+        .slot-icon { font-size: 26px; filter: drop-shadow(2px 2px 0 #000); }
+        .slot-block { width: 26px; height: 26px; border: 1px solid rgba(0,0,0,0.3); box-shadow: 2px 2px 0 rgba(0,0,0,0.5); }
 
-        /* 모바일 컨트롤러 */
+        /* 컨트롤러 */
         #controls {
-            position: absolute; bottom: 10px; width: 100%; height: 150px;
-            pointer-events: none; display: flex; justify-content: space-between;
-            padding: 0 20px; box-sizing: border-box;
+            position: absolute; bottom: 20px; width: 100%; height: 140px;
+            pointer-events: none; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box;
         }
         .btn-group { display: flex; gap: 15px; align-items: flex-end; pointer-events: auto; }
         .touch-btn {
-            width: 70px; height: 70px;
-            background: rgba(255,255,255,0.15);
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
+            width: 80px; height: 80px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+            border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
             display: flex; justify-content: center; align-items: center;
-            color: white; font-size: 24px; font-weight: bold;
-            backdrop-filter: blur(2px);
-            user-select: none;
+            color: white; font-size: 30px; font-weight: bold; backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;
         }
-        .touch-btn:active { background: rgba(255,215,0,0.3); border-color: #FFD700; }
+        .touch-btn:active, .touch-btn.active { background: rgba(255,215,0,0.3); border-color: #FFD700; transform: scale(0.95); }
         
-        /* 모드 전환 버튼 (채굴/건설) */
         #mode-toggle {
-            position: absolute; bottom: 100px; right: 20px;
-            width: 60px; height: 60px; border-radius: 12px;
-            background: rgba(0,0,0,0.6); font-size: 24px;
-            pointer-events: auto; border: 2px solid #fff;
+            position: absolute; bottom: 130px; right: 20px;
+            width: 64px; height: 64px; border-radius: 12px;
+            background: rgba(0,0,0,0.7); font-size: 30px;
+            pointer-events: auto; border: 3px solid #fff;
             display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5); cursor: pointer;
         }
-        .mode-mine { border-color: #ff5252 !important; color: #ff5252; }
-        .mode-build { border-color: #40c4ff !important; color: #40c4ff; }
+        .mode-mine { border-color: #ff5252 !important; color: #ff5252; text-shadow: 0 0 5px #ff5252; }
+        .mode-build { border-color: #40c4ff !important; color: #40c4ff; text-shadow: 0 0 5px #40c4ff; }
 
-        /* 오버레이 (상점 등) */
+        /* 메뉴 패널 */
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 100; pointer-events: auto;
+            backdrop-filter: blur(5px);
         }
         .panel {
-            background: #333; padding: 20px; border-radius: 15px;
-            border: 3px solid #4CAF50; text-align: center; width: 85%; max-width: 350px;
-            max-height: 90vh; overflow-y: auto; color: white;
+            background: #222; padding: 30px; border-radius: 20px;
+            border: 4px solid #4CAF50; text-align: center; width: 90%; max-width: 450px;
+            color: white; box-shadow: 0 20px 50px rgba(0,0,0,0.7);
         }
-        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
-        .shop-btn {
-            background: #555; border: 1px solid #777; color: white;
-            padding: 10px; border-radius: 8px; font-size: 13px;
-        }
-        .shop-btn:active { background: #777; }
         .big-btn {
-            width: 100%; padding: 15px; font-size: 18px; font-weight: bold;
-            background: #4CAF50; color: white; border: none; border-radius: 8px; margin-top: 10px;
+            width: 100%; padding: 15px; font-size: 20px; font-weight: bold;
+            background: linear-gradient(to bottom, #4CAF50, #2E7D32);
+            color: white; border: none; border-radius: 10px; margin-top: 15px;
+            box-shadow: 0 5px 0 #1B5E20; text-shadow: 1px 1px 0 rgba(0,0,0,0.5); cursor: pointer;
         }
+        .big-btn:active { transform: translateY(5px); box-shadow: none; }
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .shop-btn {
+            background: #444; border: 1px solid #666; color: white;
+            padding: 12px; border-radius: 8px; font-size: 14px; transition: transform 0.1s; cursor: pointer;
+        }
+        .shop-btn:active { transform: scale(0.95); background: #555; }
 
         .toast {
-            position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%);
-            color: #FFD700; font-size: 20px; font-weight: bold; text-shadow: 0 2px 4px #000;
-            opacity: 0; transition: opacity 0.5s; pointer-events: none;
+            position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%);
+            color: #FFD700; font-size: 24px; font-weight: bold;
+            text-shadow: 2px 2px 0 #000, 0 0 10px #FFD700;
+            opacity: 0; transition: opacity 0.5s; pointer-events: none; z-index: 200;
         }
         .sound-toggle {
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            color: #aaa; font-size: 12px; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 15px; pointer-events: auto;
+            color: #ccc; font-size: 12px; background: rgba(0,0,0,0.6);
+            padding: 6px 12px; border-radius: 20px; pointer-events: auto; border: 1px solid #555; cursor: pointer;
         }
     </style>
 </head>
 <body>
 
-    <!-- 게임 캔버스 -->
     <canvas id="gameCanvas"></canvas>
 
-    <!-- UI 레이어 -->
     <div id="ui-layer">
         <div id="hud">
-            <div class="stat-box">LV: <span id="ui-level">1</span> <span style="color:#FFD700; margin-left:10px;">$<span id="ui-gold">0</span></span></div>
-            <div class="stat-box">
-                <div style="display:flex; justify-content:space-between; font-size:12px; color:#ff5252;">
-                    <span>HP</span> <span><span id="ui-hp">100</span>/<span id="ui-max">100</span></span>
+            <div class="stat-card">
+                LV: <span id="ui-level">1</span> <span style="color:#FFD700; margin-left:15px;">GOLD: $<span id="ui-gold">0</span></span>
+            </div>
+            <div class="stat-card">
+                <div style="display:flex; justify-content:space-between; font-size:14px; color:#ff5252;">
+                    <span>HP</span> <span><span id="ui-hp">100</span> / <span id="ui-max">100</span></span>
                 </div>
                 <div class="hp-bar-bg"><div id="hp-bar" class="hp-bar-fill"></div></div>
-                <div id="breath-box" class="hp-bar-bg breath-bg"><div id="breath-bar" class="breath-fill"></div></div>
+                <div id="breath-box" class="hp-bar-bg" style="display:none; border-color:#00B0FF; height:8px;"><div id="breath-bar" class="hp-bar-fill" style="background:#00B0FF;"></div></div>
             </div>
         </div>
 
         <div id="boss-hud">
-            <div class="boss-name">BOSS</div>
+            <div class="boss-title">BOSS</div>
             <div class="boss-bar-bg"><div id="boss-fill" class="boss-bar-fill"></div></div>
         </div>
-
         <div id="toast" class="toast">저장됨!</div>
     </div>
 
-    <!-- 인벤토리 -->
     <div id="inventory-bar"></div>
 
-    <!-- 모바일 컨트롤 -->
     <div id="controls">
         <div class="btn-group">
             <div id="btn-left" class="touch-btn">◀</div>
             <div id="btn-right" class="touch-btn">▶</div>
         </div>
         <div class="btn-group">
-            <div id="btn-jump" class="touch-btn" style="background:rgba(0,255,0,0.15);">⬆</div>
+            <div id="btn-jump" class="touch-btn" style="background:rgba(0,255,0,0.15); border-color:#81C784;">⬆</div>
         </div>
     </div>
     
-    <!-- 모드 전환 (채굴/건설) -->
     <div id="mode-toggle" class="mode-mine">⛏️</div>
-
     <div class="sound-toggle" onclick="toggleSound()">🔊 소리 켜짐</div>
 
-    <!-- 오버레이 메뉴 -->
     <div id="overlay">
-        <!-- 시작 화면 -->
         <div id="start-menu" class="panel">
-            <h1 style="color:#FFD700; margin-top:0;">VOXEL QUEST</h1>
-            <p>모바일 오리지널</p>
+            <h1 style="color:#FFD700; margin-top:0; text-shadow:2px 2px 0 #000;">VOXEL QUEST</h1>
+            <p style="color:#aaa;">True Complete Edition</p>
             <button class="big-btn" onclick="startGame(true)">새 게임 시작</button>
-            <button id="btn-continue" class="big-btn" style="background:#2196F3; display:none;" onclick="loadGame()">이어하기</button>
+            <button id="btn-continue" class="big-btn" style="background:linear-gradient(to bottom,#2196F3,#1565C0); box-shadow:0 5px 0 #0D47A1; display:none;" onclick="loadGame()">이어하기</button>
         </div>
 
-        <!-- 상점 화면 -->
         <div id="shop-menu" class="panel" style="display:none;">
-            <h2 style="color:#FFD700;">레벨 클리어!</h2>
-            <p>보유 골드: <span id="shop-gold">0</span></p>
+            <h2 style="color:#FFD700;">스테이지 완료!</h2>
+            <p>보유 골드: <span id="shop-gold" style="color:#FFD700">0</span></p>
             <div class="shop-grid">
                 <div class="shop-btn" onclick="buyItem('heal')">❤️ 회복 (50G)</div>
                 <div class="shop-btn" onclick="buyItem('damage')">⚔️ 공격력 (200G)</div>
                 <div class="shop-btn" onclick="buyItem('speed')">👟 이속 (150G)</div>
-                <div class="shop-btn" onclick="buyItem('maxhp')">🛡️ 최대체력 (300G)</div>
-                <div class="shop-btn" onclick="buyItem('wand')" id="btn-wand">🔥 파이어완드 (500G)</div>
+                <div class="shop-btn" onclick="buyItem('maxhp')">🛡️ 체력 (300G)</div>
+                <div class="shop-btn" onclick="buyItem('wand')" id="btn-wand">🔥 완드 (500G)</div>
             </div>
             <button class="big-btn" onclick="nextLevel()">다음 레벨 >></button>
         </div>
 
-        <!-- 사망 화면 -->
         <div id="death-menu" class="panel" style="display:none; border-color:#d32f2f;">
-            <h1 style="color:#d32f2f;">사망했습니다</h1>
-            <p>레벨 <span id="death-level">1</span>에서 실패</p>
-            <button class="big-btn" style="background:#d32f2f;" onclick="restartGame()">다시 도전</button>
+            <h1 style="color:#d32f2f; text-shadow:2px 2px 0 #000;">GAME OVER</h1>
+            <p>레벨 <span id="death-level">1</span> 실패</p>
+            <button class="big-btn" style="background:linear-gradient(to bottom,#f44336,#c62828); box-shadow:0 5px 0 #b71c1c;" onclick="restartGame()">다시 도전</button>
         </div>
     </div>
 
 <script>
-    // --- 오디오 시스템 (간단한 신디사이저) ---
+(function() { 
+
+    // --- 오디오 시스템 ---
     const AudioSys = {
         ctx: null, muted: false,
-        init() {
-            if(!this.ctx) this.ctx = new (window.AudioContext||window.webkitAudioContext)();
-            if(this.ctx.state==='suspended') this.ctx.resume();
-        },
+        init() { if(!this.ctx) this.ctx=new(window.AudioContext||window.webkitAudioContext)(); if(this.ctx.state==='suspended')this.ctx.resume(); },
         playTone(freq, type, dur, vol=0.1) {
-            if(this.muted || !this.ctx) return;
+            if(this.muted||!this.ctx)return;
             const o=this.ctx.createOscillator(), g=this.ctx.createGain();
-            o.type=type; o.frequency.value=freq;
-            g.gain.setValueAtTime(vol, this.ctx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime+dur);
-            o.connect(g); g.connect(this.ctx.destination);
-            o.start(); o.stop(this.ctx.currentTime+dur);
+            o.type=type; o.frequency.value=freq; g.gain.setValueAtTime(vol,this.ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01,this.ctx.currentTime+dur);
+            o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime+dur);
         },
         noise(dur) {
-            if(this.muted || !this.ctx) return;
-            const b=this.ctx.createBuffer(1,this.ctx.sampleRate*dur,this.ctx.sampleRate), d=b.getChannelData(0);
-            for(let i=0;i<b.length;i++) d[i]=Math.random()*2-1;
-            const s=this.ctx.createBufferSource(), g=this.ctx.createGain();
-            s.buffer=b; g.gain.setValueAtTime(0.1,this.ctx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.01,this.ctx.currentTime+dur);
+            if(this.muted||!this.ctx)return;
+            const b=this.ctx.createBuffer(1,this.ctx.sampleRate*dur,this.ctx.sampleRate),d=b.getChannelData(0);
+            for(let i=0;i<b.length;i++)d[i]=Math.random()*2-1;
+            const s=this.ctx.createBufferSource(),g=this.ctx.createGain();
+            s.buffer=b; g.gain.setValueAtTime(0.1,this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.01,this.ctx.currentTime+dur);
             s.connect(g); g.connect(this.ctx.destination); s.start();
         }
     };
     function toggleSound(){ AudioSys.muted=!AudioSys.muted; document.querySelector('.sound-toggle').innerText=AudioSys.muted?"🔇 소리 꺼짐":"🔊 소리 켜짐"; }
     const SFX = {
-        jump:()=>AudioSys.playTone(300,'square',0.1,0.05),
-        coin:()=>AudioSys.playTone(1200,'sine',0.15,0.1),
-        hit:()=>AudioSys.playTone(100,'sawtooth',0.1,0.1),
-        place:()=>AudioSys.playTone(400,'sine',0.05,0.05),
-        exp:()=>AudioSys.noise(0.4)
+        jump:()=>AudioSys.playTone(300,'square',0.1,0.05), coin:()=>AudioSys.playTone(1200,'sine',0.15,0.1),
+        hit:()=>AudioSys.playTone(100,'sawtooth',0.1,0.1), place:()=>AudioSys.playTone(400,'sine',0.05,0.05), exp:()=>AudioSys.noise(0.4)
     };
 
-    // --- 기존 게임 상수 및 데이터 ---
-    const TILE_SIZE = 40;
-    const GRAVITY = 0.5;
-    const TERMINAL_VELOCITY = 15;
-    const JUMP_FORCE = -11;
-    const INTERACTION_RANGE = 5 * TILE_SIZE;
-
-    const BLOCKS = {
-        AIR: 0, DIRT: 1, GRASS: 2, STONE: 3, WOOD: 4, LEAVES: 5, BRICK: 6,
-        SAND: 7, SNOW: 8, COAL_ORE: 9, GOLD_ORE: 10, DIAMOND_ORE: 11,
-        TNT: 12, GLASS: 13, PLANK: 14, SPIKE: 15, GOAL: 99,
-        WATER: 20, LAVA: 21
-    };
-    const ITEMS = { SWORD: 100, WAND: 101 };
-
-    const BLOCK_DEF = {
-        [BLOCKS.DIRT]: { color: '#5d4037' },
-        [BLOCKS.GRASS]: { color: '#5d4037', top: '#4caf50' },
-        [BLOCKS.STONE]: { color: '#757575' },
-        [BLOCKS.WOOD]: { color: '#5d4037', side: '#4e342e' },
-        [BLOCKS.LEAVES]: { color: '#2e7d32', alpha: 0.9 },
-        [BLOCKS.BRICK]: { color: '#b71c1c' },
-        [BLOCKS.SAND]: { color: '#fbc02d' },
-        [BLOCKS.SNOW]: { color: '#e0f7fa', top: '#ffffff' },
-        [BLOCKS.COAL_ORE]: { color: '#757575', speckle: '#212121', value: 5 },
-        [BLOCKS.GOLD_ORE]: { color: '#757575', speckle: '#ffeb3b', value: 15 },
-        [BLOCKS.DIAMOND_ORE]: { color: '#757575', speckle: '#00bcd4', value: 50 },
-        [BLOCKS.TNT]: { color: '#d32f2f', label: 'TNT' },
-        [BLOCKS.GLASS]: { color: '#81d4fa', alpha: 0.4 },
-        [BLOCKS.PLANK]: { color: '#8d6e63' },
-        [BLOCKS.SPIKE]: { color: '#9E9E9E', spike: true },
-        [BLOCKS.WATER]: { color: '#29B6F6', alpha: 0.5, fluid: true },
-        [BLOCKS.LAVA]: { color: '#FF5722', alpha: 0.8, fluid: true, light: true },
-        [BLOCKS.GOAL]: { color: '#6a1b9a', speckle: '#FFD700' }, 
-        [ITEMS.SWORD]: { icon: '🗡️', type: 'tool', color: '#00bcd4' },
-        [ITEMS.WAND]: { icon: '🔥', type: 'tool', color: '#FF5722' }
-    };
-
-    // --- 전역 변수 ---
-    let canvas, ctx, width, height;
-    let gameState = "MENU";
-    let currentLevel = 1;
-    let worldWidth = 100, worldHeight = 50;
+    // --- 게임 상수 ---
+    const TILE=40, DEPTH=10, GRAVITY=0.5, RANGE=5*TILE;
+    const BLOCKS={AIR:0,DIRT:1,GRASS:2,STONE:3,WOOD:4,LEAVES:5,BRICK:6,SAND:7,SNOW:8,COAL:9,GOLD:10,DIAMOND:11,TNT:12,GLASS:13,PLANK:14,SPIKE:15,GOAL:99,WATER:20,LAVA:21};
+    const ITEMS={SWORD:100,WAND:101};
     
-    let world = [], particles = [], mobs = [], projectiles = [], activeTNTs = [];
-    let weather = "NONE", weatherParticles = [];
-    let gameTime = 0, shake = 0, damageFlash = 0;
-    let activeBoss = null;
-
-    let player = {
-        x: 0, y: 0, width: 28, height: 38, vx: 0, vy: 0,
-        grounded: false, facingRight: true, attackTimer: 0, actionTimer: 0,
-        hp: 100, maxHp: 100, gold: 0, speed: 6, damage: 15,
-        hasWand: false, breath: 100, inWater: false, invulnerable: 0
+    // 블록 정의
+    const DEFS={
+        [BLOCKS.DIRT]:{c:'#795548'}, [BLOCKS.GRASS]:{c:'#795548',top:'#4caf50'}, [BLOCKS.STONE]:{c:'#9E9E9E'},
+        [BLOCKS.WOOD]:{c:'#5D4037',side:'#4E342E'}, [BLOCKS.LEAVES]:{c:'#388E3C',a:0.9}, [BLOCKS.BRICK]:{c:'#D32F2F'},
+        [BLOCKS.SAND]:{c:'#FBC02D'}, [BLOCKS.SNOW]:{c:'#E0F7FA',top:'#ffffff'},
+        [BLOCKS.COAL]:{c:'#9E9E9E',dot:'#212121',v:5}, [BLOCKS.GOLD]:{c:'#9E9E9E',dot:'#FFEB3B',v:15},
+        [BLOCKS.DIAMOND]:{c:'#9E9E9E',dot:'#00BCD4',v:50}, [BLOCKS.TNT]:{c:'#E53935',txt:'TNT'},
+        [BLOCKS.GLASS]:{c:'#81D4FA',a:0.4}, [BLOCKS.PLANK]:{c:'#8D6E63'}, [BLOCKS.SPIKE]:{c:'#BDBDBD',s:true},
+        [BLOCKS.WATER]:{c:'#29B6F6',a:0.5,f:true}, [BLOCKS.LAVA]:{c:'#FF5722',a:0.8,f:true}, [BLOCKS.GOAL]:{c:'#6a1b9a',dot:'#FFD700'},
+        [ITEMS.SWORD]:{i:'🗡️',tool:true,c:'#00BCD4'}, [ITEMS.WAND]:{i:'🔥',tool:true,c:'#FF5722'}
     };
     
-    let camera = { x: 0, y: 0 };
-    let inventory = [ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.TNT, BLOCKS.WATER];
-    let selectedSlot = 0;
-
-    // 모바일 입력 변수
-    let keys = { ArrowLeft: false, ArrowRight: false, Space: false, KeyW: false };
-    let touchMode = "MINE"; // MINE (좌클릭/파괴) vs BUILD (우클릭/설치)
-
-    // --- 초기화 ---
-    window.onload = function() {
-        canvas = document.getElementById('gameCanvas');
-        ctx = canvas.getContext('2d', { alpha: false });
-        resize();
-        window.addEventListener('resize', resize);
-        
-        // 자동 저장 데이터 확인
-        if(localStorage.getItem('vq_orig_save')) {
-            document.getElementById('btn-continue').style.display = 'block';
-        }
-
-        setupControls();
-        requestAnimationFrame(loop);
+    const MOBS = {
+        'SLIME': {c:'#76ff03',w:30,h:20,sp:2,hp:30,rw:10},
+        'ZOMBIE': {c:'#2e7d32',w:28,h:38,sp:1.5,hp:50,rw:20},
+        'BAT': {c:'#424242',w:24,h:24,sp:3,hp:20,rw:15,fly:true},
+        'BOSS_SLIME': {c:'#00E676',w:90,h:90,sp:3,hp:600,rw:500,boss:true,name:"KING SLIME"},
+        'BOSS_ZOMBIE': {c:'#D50000',w:60,h:100,sp:4,hp:800,rw:600,boss:true,name:"MUTANT ZOMBIE"},
+        'BOSS_VOID': {c:'#212121',w:100,h:120,sp:2,hp:1200,rw:1000,boss:true,name:"VOID LORD"}
     };
 
-    function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+    // --- 변수 ---
+    let cvs, ctx, W, H, state="MENU", lv=1, ww=100, wh=50;
+    let world=[], mobs=[], projs=[], tnts=[], parts=[], wParts=[], floatTexts=[];
+    let weather="NONE", time=0, shake=0, flash=0, boss=null, cam={x:0,y:0};
+    let p={x:0,y:0,w:28,h:38,vx:0,vy:0,g:false,dir:1,hp:100,max:100,gold:0,sp:6,dmg:15,wand:false,air:100,inv:0};
+    let inv=[ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA], slot=0;
+    let keys={l:false,r:false,u:false}, mode="MINE";
+    let mouse = {x:0, y:0, active:false};
 
-    // --- 입력 처리 (모바일) ---
-    function setupControls() {
-        const bindBtn = (id, key) => {
-            const el = document.getElementById(id);
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); el.style.background='rgba(255,215,0,0.4)'; keys[key] = true; });
-            el.addEventListener('touchend', (e) => { e.preventDefault(); el.style.background=''; keys[key] = false; });
+    window.onload = () => {
+        cvs=document.getElementById('gameCanvas'); ctx=cvs.getContext('2d',{alpha:false});
+        resize(); window.addEventListener('resize',resize);
+        if(localStorage.getItem('vq_true_save')) document.getElementById('btn-continue').style.display='block';
+        setupCtrl(); loop();
+    };
+    function resize(){ W=cvs.width=window.innerWidth; H=cvs.height=window.innerHeight; }
+
+    function setupCtrl() {
+        // [수정] 마우스와 터치 이벤트를 통합 처리하여 PC에서도 이동 가능하도록 개선
+        const bd=(id,k)=>{
+            let e=document.getElementById(id);
+            const down = (ev) => { if(ev.cancelable) ev.preventDefault(); e.style.background='rgba(255,215,0,0.4)'; keys[k]=true; };
+            const up = (ev) => { if(ev.cancelable) ev.preventDefault(); e.style.background=''; keys[k]=false; };
+            
+            e.addEventListener('touchstart', down); e.addEventListener('touchend', up);
+            e.addEventListener('mousedown', down); e.addEventListener('mouseup', up); e.addEventListener('mouseleave', up);
         };
-        bindBtn('btn-left', 'ArrowLeft');
-        bindBtn('btn-right', 'ArrowRight');
-        bindBtn('btn-jump', 'Space');
+        bd('btn-left','l'); bd('btn-right','r'); bd('btn-jump','u');
 
-        // 모드 전환 버튼
-        const modeBtn = document.getElementById('mode-toggle');
-        modeBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            touchMode = touchMode === "MINE" ? "BUILD" : "MINE";
-            modeBtn.innerText = touchMode === "MINE" ? "⛏️" : "🧱";
-            modeBtn.className = touchMode === "MINE" ? "mode-mine" : "mode-build";
+        // [수정] 모드 전환 버튼도 마우스 지원
+        let mb=document.getElementById('mode-toggle');
+        const toggleMode = (e) => {
+            if(e.cancelable) e.preventDefault(); 
+            mode=mode==="MINE"?"BUILD":"MINE"; 
+            mb.innerText=mode==="MINE"?"⛏️":"🧱"; 
+            mb.className=`mode-${mode.toLowerCase()}`;
+        };
+        mb.addEventListener('touchstart', toggleMode);
+        mb.addEventListener('mousedown', toggleMode);
+        
+        // [수정] 캔버스 상호작용 (마우스+터치 통합)
+        const inputHandler = (e) => {
+            if(state!=="PLAY")return;
+            
+            // 좌표 추출
+            let clientX, clientY;
+            if(e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX; clientY = e.clientY;
+            }
+            
+            let r=cvs.getBoundingClientRect();
+            mouse.x = clientX - r.left; mouse.y = clientY - r.top; mouse.active = true;
+            
+            // 클릭/터치 시작 시 동작
+            if(e.type === 'touchstart' || e.type === 'mousedown') {
+                if(e.cancelable) e.preventDefault(); // 드래그 방지
+                let it=inv[slot];
+                if(it===ITEMS.SWORD||it===ITEMS.WAND) interact(0, mouse.x, mouse.y);
+                else interact(mode==="MINE"?0:2, mouse.x, mouse.y);
+            }
+        };
+
+        cvs.addEventListener('touchstart',inputHandler,{passive:false}); 
+        cvs.addEventListener('touchmove',inputHandler,{passive:false});
+        cvs.addEventListener('touchend',()=>{mouse.active=false;});
+        
+        // PC 마우스 지원 추가
+        cvs.addEventListener('mousedown', inputHandler);
+        cvs.addEventListener('mousemove', (e) => {
+            let r=cvs.getBoundingClientRect();
+            mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.active = true;
+            if(e.buttons === 1) inputHandler(e); // 드래그 시 계속 동작
         });
+        cvs.addEventListener('mouseup', ()=>{mouse.active=false;});
 
-        // 캔버스 터치 (상호작용)
-        canvas.addEventListener('touchstart', handleTouch, {passive: false});
-        canvas.addEventListener('touchmove', handleTouch, {passive: false});
+        // [수정] 키보드 지원 추가 (PC 테스트용)
+        window.addEventListener('keydown', e => {
+            if(e.code==='ArrowLeft') keys.l=true;
+            if(e.code==='ArrowRight') keys.r=true;
+            if(e.code==='Space'||e.code==='ArrowUp') keys.u=true;
+        });
+        window.addEventListener('keyup', e => {
+            if(e.code==='ArrowLeft') keys.l=false;
+            if(e.code==='ArrowRight') keys.r=false;
+            if(e.code==='Space'||e.code==='ArrowUp') keys.u=false;
+        });
     }
 
-    function handleTouch(e) {
-        if(gameState !== "PLAY") return;
-        e.preventDefault();
-        const t = e.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        
-        // 터치 좌표를 월드 좌표로 변환하지 않고 handleInteraction에 전달하기 위해
-        // 마우스 에뮬레이션 객체를 생성하여 전달
-        const mx = t.clientX - rect.left;
-        const my = t.clientY - rect.top;
-
-        // 아이템 사용 (칼/완드)은 터치 즉시 발동
-        let item = inventory[selectedSlot];
-        if(item === ITEMS.SWORD || item === ITEMS.WAND) {
-            handleInteraction(0, mx, my); // 공격은 항상 좌클릭 판정
-        } else {
-            // 블록 설치/파괴는 모드에 따라 다름
-            // MINE 모드 = 좌클릭(0), BUILD 모드 = 우클릭(2)
-            handleInteraction(touchMode === "MINE" ? 0 : 2, mx, my);
-        }
-    }
-
-    // --- 게임 시작 및 로드 ---
-    function startGame(reset) {
+    function startGame(rst) {
         AudioSys.init();
-        if(reset) {
-            currentLevel = 1;
-            player = {
-                x: 0, y: 0, width: 28, height: 38, vx: 0, vy: 0,
-                grounded: false, facingRight: true, attackTimer: 0, actionTimer: 0,
-                hp: 100, maxHp: 100, gold: 0, speed: 6, damage: 15,
-                hasWand: false, breath: 100, inWater: false, invulnerable: 0
-            };
-            inventory = [ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.TNT, BLOCKS.WATER];
+        if(rst){ 
+            lv=1; 
+            p={x:0,y:0,w:28,h:38,vx:0,vy:0,g:false,dir:1,hp:100,max:100,gold:0,sp:6,dmg:15,wand:false,air:100,inv:0}; 
+            inv=[ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA]; 
         }
-        generateLevel(currentLevel);
-        gameState = "PLAY";
-        document.getElementById('overlay').style.display = 'none';
-        updateInventoryUI();
-        updateHUD();
+        genLevel(lv); state="PLAY"; document.getElementById('overlay').style.display='none'; updInv(); updHud();
     }
-
     function loadGame() {
-        try {
-            const data = JSON.parse(localStorage.getItem('vq_orig_save'));
-            currentLevel = data.lvl;
-            player.hp = data.hp; player.maxHp = data.maxHp; player.gold = data.gold;
-            player.speed = data.spd; player.damage = data.dmg; player.hasWand = data.wand;
-            inventory = data.inv;
-            startGame(false);
-            showToast("로드 완료!");
-        } catch(e) {
-            alert("저장된 파일이 없습니다.");
-            startGame(true);
-        }
+        try{ let d=JSON.parse(localStorage.getItem('vq_true_save')); lv=d.l; p.hp=d.hp; p.max=d.mx; p.gold=d.g; p.sp=d.s; p.dmg=d.d; p.wand=d.w; inv=d.i; startGame(false); toast("로드 완료!"); }
+        catch(e){startGame(true);}
     }
 
-    // --- 레벨 생성 (오리지널 로직) ---
-    function generateLevel(level) {
-        world = []; particles = []; mobs = []; projectiles = []; activeTNTs = []; weatherParticles = [];
-        activeBoss = null; document.getElementById('boss-hud').style.display = 'none';
-
-        let wRand = Math.random();
-        if (wRand < 0.2) weather = "RAIN";
-        else if (wRand < 0.4 && level > 2) weather = "SNOW";
-        else weather = "NONE";
-
-        worldWidth = 150 + (level * 20);
-        worldHeight = 60;
+    function genLevel(l) {
+        world=[]; mobs=[]; projs=[]; tnts=[]; parts=[]; floatTexts=[]; boss=null; document.getElementById('boss-hud').style.display='none';
+        weather=Math.random()<0.2?"RAIN":(l>2&&Math.random()<0.4?"SNOW":"NONE");
+        ww=150+(l*20); wh=60;
+        let hts=[], depths=[];
         
-        // 지형 높이 노이즈
-        const heights = [];
-        for (let x = 0; x < worldWidth; x++) {
-            let base = Math.sin(x * 0.05) * (5 + level * 2); 
-            let detail = Math.sin(x * 0.3) * (2 + level);
-            let h = Math.floor(worldHeight / 2 + base + detail);
-            if(h < 5) h = 5; if(h > worldHeight - 5) h = worldHeight - 5;
-            heights.push(h);
+        let currDepth = 4;
+        for(let x=0; x<ww; x++) {
+            let h=Math.floor(wh/2 + Math.sin(x*0.05)*(5+l*2) + Math.sin(x*0.3)*(2+l));
+            hts.push(Math.max(5, Math.min(wh-5, h)));
+            let change = Math.floor(Math.random()*3)-1; currDepth += change;
+            if(currDepth<2) currDepth=2; if(currDepth>6) currDepth=6;
+            depths.push(currDepth);
         }
-
-        const isBossLevel = level % 3 === 0;
-
-        for (let y = 0; y < worldHeight; y++) {
-            let row = [];
-            for (let x = 0; x < worldWidth; x++) {
-                let h = heights[x];
-                let block = BLOCKS.AIR;
-
-                if (x < 20) { // 시작 지점 평탄화
-                    h = Math.floor(worldHeight / 2);
-                    if (y >= h) block = (y === h) ? BLOCKS.GRASS : BLOCKS.DIRT;
-                    if (y >= worldHeight - 2) block = BLOCKS.BRICK;
-                } else {
-                    let isGap = false;
-                    if (!isBossLevel && x < worldWidth - 20) {
-                        if (Math.sin(x*0.8) * Math.cos(x*0.4) > 0.9 - (level*0.02)) isGap = true;
-                    }
-
-                    if (isGap && y > worldHeight - 5) block = (Math.random() < 0.5) ? BLOCKS.SPIKE : BLOCKS.LAVA;
-                    else if (!isGap && y >= h) {
-                        if (y === h) block = BLOCKS.GRASS;
-                        else if (y > h && y <= h + 4) block = BLOCKS.DIRT; 
+        
+        let isBoss = l%3===0;
+        for(let y=0;y<wh;y++) {
+            let row=[];
+            for(let x=0;x<ww;x++) {
+                let h=hts[x], d=depths[x], b=BLOCKS.AIR;
+                if(x<20) { if(y>=Math.floor(wh/2)) b=(y===Math.floor(wh/2))?BLOCKS.GRASS:BLOCKS.DIRT; }
+                else {
+                    let gap = (!isBoss && x<ww-20 && Math.sin(x*0.8)*Math.cos(x*0.4)>0.9-(l*0.02));
+                    if(gap && y>wh-5) b=Math.random()<0.5?BLOCKS.SPIKE:BLOCKS.LAVA;
+                    else if(!gap && y>=h) {
+                        if(y===h)b=BLOCKS.GRASS;
+                        else if(y<=h+d)b=BLOCKS.DIRT;
                         else {
-                            block = BLOCKS.STONE;
-                            let r = Math.random();
-                            if (r < 0.05) block = BLOCKS.COAL_ORE;
-                            else if (r < 0.03) block = BLOCKS.GOLD_ORE;
-                            else if (r < 0.02) block = BLOCKS.DIAMOND_ORE;
+                            b=BLOCKS.STONE;
+                            let r=Math.random();
+                            if(r<0.05)b=BLOCKS.COAL; else if(r<0.03)b=BLOCKS.GOLD; else if(r<0.02)b=BLOCKS.DIAMOND;
                         }
                     }
-                    if (y >= worldHeight - 2) block = BLOCKS.BRICK;
                 }
-                
-                if (x === worldWidth - 4 && y === h - 1) block = BLOCKS.GOAL;
-                row.push(block);
+                if(y>=wh-2)b=BLOCKS.BRICK;
+                if(x===ww-4 && y===h-1)b=BLOCKS.GOAL;
+                row.push(b);
             }
             world.push(row);
         }
 
-        // 연못 생성 (오리지널 알고리즘 복구)
-        let numPonds = Math.floor(Math.random() * 4);
+        let numPonds = Math.floor(Math.random()*4);
         for(let i=0; i<numPonds; i++) {
-            let pW = 7 + Math.floor(Math.random() * 6);
-            let startX = 25 + Math.floor(Math.random() * (worldWidth - 50));
-            let centerIdx = startX + Math.floor(pW/2);
-            if (centerIdx >= heights.length) continue;
-            let surfaceY = heights[centerIdx];
-            
-            for (let x = startX; x < startX + pW; x++) {
-                if(x >= worldWidth-10) continue;
-                let xDist = (x - (startX + pW/2));
-                let maxY = Math.floor(surfaceY + (3 + Math.random()*3) * Math.sqrt(1 - (xDist*xDist)/((pW/2)*(pW/2))));
-                for (let y = surfaceY; y <= maxY; y++) {
-                    if (y>=0 && y<worldHeight-2 && world[y] && world[y][x] !== BLOCKS.AIR && world[y][x] !== BLOCKS.GOAL) {
-                        world[y][x] = BLOCKS.WATER;
-                    }
-                }
+            let pw = 7+Math.floor(Math.random()*6), sx = 25+Math.floor(Math.random()*(ww-50));
+            let cy = hts[sx+Math.floor(pw/2)];
+            for(let x=sx; x<sx+pw; x++) {
+                if(x>=ww-10)continue;
+                let xd=x-(sx+pw/2), my=Math.floor(cy+(3+Math.random()*3)*Math.sqrt(1-(xd*xd)/((pw/2)**2)));
+                for(let y=cy; y<=my; y++) if(world[y] && world[y][x]!==BLOCKS.AIR && world[y][x]!==BLOCKS.GOAL) world[y][x]=BLOCKS.WATER;
             }
         }
 
-        // 몬스터 스폰
-        const mobChance = Math.min(0.05, 0.02 + (level * 0.005));
-        for (let x = 20; x < worldWidth - 20; x++) {
-            if (isBossLevel && x > worldWidth - 60) continue;
-            if (Math.random() < mobChance) {
-                let h = heights[x];
-                if (world[h][x] !== BLOCKS.AIR && world[h-1][x] === BLOCKS.AIR) {
-                    spawnMob(x * TILE_SIZE, (h - 2) * TILE_SIZE, (Math.random()<0.6)?'SLIME':'ZOMBIE');
-                }
-                if (level > 2 && Math.random() < 0.3) spawnMob(x * TILE_SIZE, (h - 10) * TILE_SIZE, 'BAT');
-            }
+        while(mobs.length < 3) {
+            let x = 20 + Math.floor(Math.random()*(ww-40));
+            let h = hts[x];
+            if(world[h][x]!==BLOCKS.AIR) spawnMob(x*TILE, (h-2)*TILE, Math.random()<0.6?'SLIME':'ZOMBIE');
         }
-
-        if (isBossLevel) {
-            let bx = (worldWidth - 30) * TILE_SIZE;
-            let bossType = 'BOSS_SLIME';
-            if (level % 9 === 0) bossType = 'BOSS_VOID';
-            else if (level % 6 === 0) bossType = 'BOSS_ZOMBIE';
-            spawnMob(bx, 0, bossType);
-        }
-
-        player.x = 5 * TILE_SIZE;
-        player.y = (Math.floor(worldHeight/2) - 5) * TILE_SIZE; // 안전하게 공중 스폰
-        player.vx=0; player.vy=0;
         
-        camera.x = player.x + player.width/2 - width/2;
-        camera.y = player.y + player.height/2 - height/2;
-
-        updateHUD();
-    }
-
-    const MOB_TYPES = {
-        SLIME: { color: '#76ff03', width: 30, height: 20, speed: 2, jump: -8, hp: 30, reward: 10, type: 'slime' },
-        ZOMBIE: { color: '#2e7d32', width: 28, height: 38, speed: 1.5, jump: -10, hp: 50, reward: 20, type: 'zombie' },
-        BAT: { color: '#424242', width: 20, height: 20, speed: 3, jump: 0, hp: 20, reward: 15, type: 'bat', fly: true },
-        BOSS_SLIME: { color: '#00E676', width: 90, height: 90, speed: 3, jump: -14, hp: 600, reward: 500, type: 'boss', name: "KING SLIME" },
-        BOSS_ZOMBIE: { color: '#D50000', width: 60, height: 100, speed: 4, jump: -12, hp: 800, reward: 600, type: 'boss', name: "MUTANT ZOMBIE" },
-        BOSS_VOID: { color: '#212121', width: 100, height: 120, speed: 2, jump: -10, hp: 1200, reward: 1000, type: 'boss', name: "VOID LORD" }
-    };
-
-    function spawnMob(x, y, typeKey) {
-        let stats = MOB_TYPES[typeKey];
-        let hpScale = stats.hp + (currentLevel * 10);
-        let m = { x: x, y: y, vx: 0, vy: 0, ...stats, maxHp: hpScale, hp: hpScale, grounded: false, hurtTimer: 0 };
-        mobs.push(m);
-        if (stats.type === 'boss') {
-            activeBoss = m;
+        for(let x=20; x<ww-20; x++) {
+            if(Math.random() < Math.min(0.05, 0.02+l*0.005)) {
+                let h=hts[x];
+                if(world[h][x]!==BLOCKS.AIR) spawnMob(x*TILE, (h-2)*TILE, Math.random()<0.6?'SLIME':'ZOMBIE');
+                if(l>2 && Math.random()<0.3) spawnMob(x*TILE, (h-10)*TILE, 'BAT');
+            }
         }
+        if(isBoss) {
+            let t='BOSS_SLIME'; if(l%9===0)t='BOSS_VOID'; else if(l%6===0)t='BOSS_ZOMBIE';
+            spawnMob((ww-30)*TILE, 0, t);
+        }
+
+        p.x=5*TILE; p.y=(Math.floor(wh/2)-5)*TILE;
+        cam.x=p.x-W/2; cam.y=p.y-H/2; updHud();
     }
 
-    // --- 메인 루프 ---
-    function loop() {
-        if (gameState === "PLAY") update();
-        draw();
-        requestAnimationFrame(loop);
+    function spawnMob(x,y,k) {
+        let s=MOBS[k], hp=s.hp+lv*10;
+        let m={x,y,vx:0,vy:0,...s,max:hp,hp:hp,hurt:0,type:k};
+        mobs.push(m); if(s.boss) boss=m;
     }
+
+    function loop() { if(state==="PLAY")update(); draw(); requestAnimationFrame(loop); }
 
     function update() {
-        gameTime++;
-        if(shake > 0) shake *= 0.9;
-        if(damageFlash > 0) damageFlash -= 0.05;
-        if(player.invulnerable > 0) player.invulnerable--;
+        time++; if(shake>0)shake*=0.9; if(flash>0)flash-=0.05; if(p.inv>0)p.inv--;
+        if(weather!=="NONE" && Math.random()<0.3) wParts.push({x:Math.random()*W,y:-10,vx:weather==="SNOW"?Math.random()-0.5:0,vy:weather==="RAIN"?15:2,t:weather});
 
-        // 날씨 파티클
-        if (weather === "RAIN" && Math.random() < 0.5) weatherParticles.push({x: Math.random()*width, y: -10, vy: 15+Math.random()*5, type: 'rain'});
-        else if (weather === "SNOW" && Math.random() < 0.2) weatherParticles.push({x: Math.random()*width, y: -10, vy: 2+Math.random(), vx: Math.random()-0.5, type: 'snow'});
-
-        // 물리 계산용
-        let blockAtFeet = getBlock(Math.floor((player.x + player.width/2)/TILE_SIZE), Math.floor((player.y + player.height/2)/TILE_SIZE));
-        player.inWater = (blockAtFeet === BLOCKS.WATER);
-        let inLava = (blockAtFeet === BLOCKS.LAVA);
-
-        // 이동 로직
-        let moveSpeed = player.speed;
-        if (player.inWater) moveSpeed *= 0.5;
-        if (inLava) moveSpeed *= 0.1;
-
-        if (keys['ArrowLeft']) { player.vx = -moveSpeed; player.facingRight = false; }
-        else if (keys['ArrowRight']) { player.vx = moveSpeed; player.facingRight = true; }
-        else player.vx = 0;
-
-        if (keys['Space'] || keys['KeyW']) {
-            if (player.inWater) {
-                let headBlock = getBlock(Math.floor((player.x+player.width/2)/TILE_SIZE), Math.floor(player.y/TILE_SIZE)-1);
-                if(headBlock === BLOCKS.AIR) player.vy = JUMP_FORCE * 0.5;
-                else player.vy = -3;
+        let bf = getB(Math.floor((p.x+p.w/2)/TILE), Math.floor((p.y+p.h/2)/TILE));
+        let water = bf===BLOCKS.WATER, lava = bf===BLOCKS.LAVA;
+        
+        let sp = p.sp * (water?0.5:1);
+        if(keys.l){p.vx=-sp;p.dir=-1;} else if(keys.r){p.vx=sp;p.dir=1;} else p.vx=0;
+        if(keys.u){
+            if(water){
+                let head = getB(Math.floor((p.x+p.w/2)/TILE), Math.floor(p.y/TILE)-1);
+                if(head===BLOCKS.AIR) p.vy=-11*0.5; else p.vy=-3;
                 SFX.jump();
-            } else if (player.grounded) {
-                player.vy = JUMP_FORCE;
-                player.grounded = false;
-                SFX.jump();
-            }
-            keys['Space'] = false; // 연타 방지
+            } else if(p.g){ p.vy=-11; p.g=false; SFX.jump(); }
+            keys.u=false;
         }
 
-        // 중력
-        if (player.inWater) {
-            player.vy += 0.1; if(player.vy > 3) player.vy = 3;
-            player.breath -= 0.5;
-            if(player.breath <= 0 && gameTime % 30 === 0) takeDamage(5);
-        } else {
-            player.vy += GRAVITY;
-            player.breath = Math.min(player.breath + 1, 100);
-        }
-        if (inLava && gameTime % 30 === 0) takeDamage(10);
-        if (player.vy > TERMINAL_VELOCITY) player.vy = TERMINAL_VELOCITY;
+        p.vy += water?0.1:GRAVITY;
+        if(water) { p.air-=0.5; if(p.air<=0 && time%30===0) hit(p,5); } else p.air=Math.min(100,p.air+1);
+        if(lava && time%30===0) hit(p,10);
+        
+        p.x+=p.vx; col(p,'x'); p.y+=p.vy; p.g=false; col(p,'y');
+        if(p.y>wh*TILE+200 || p.hp<=0) die();
+        if(getB(Math.floor((p.x+p.w/2)/TILE), Math.floor((p.y+p.h/2)/TILE))===BLOCKS.GOAL) win();
 
-        if (player.attackTimer > 0) player.attackTimer--;
-        if (player.actionTimer > 0) player.actionTimer--;
+        cam.x += (p.x+p.w/2 - W/2 - cam.x)*0.1;
+        cam.y += (p.y+p.h/2 - H/2 - cam.y)*0.1;
 
-        // 위치 적용 및 충돌
-        player.x += player.vx; checkEntityCollision(player, 'x');
-        player.y += player.vy; player.grounded = false; checkEntityCollision(player, 'y');
-
-        // 사망 체크
-        if (player.y > worldHeight * TILE_SIZE + 200) die();
-        if (player.hp <= 0) die();
-
-        // 골인 체크
-        let px = Math.floor((player.x + player.width/2) / TILE_SIZE);
-        let py = Math.floor((player.y + player.height/2) / TILE_SIZE);
-        if (getBlock(px, py) === BLOCKS.GOAL) completeLevel();
-
-        // 카메라 이동
-        let targetCamX = player.x + player.width / 2 - width / 2;
-        let targetCamY = player.y + player.height / 2 - height / 2;
-        camera.x += (targetCamX - camera.x) * 0.1;
-        camera.y += (targetCamY - camera.y) * 0.1;
-
-        updateMobs();
-        updateProjectiles();
-        updateParticles();
-        updateTNTs();
-        updateHUD();
-    }
-
-    // --- 엔티티 업데이트 (오리지널 로직 유지) ---
-    function updateMobs() {
-        if(activeBoss) {
-            let dist = Math.abs(player.x - activeBoss.x);
-            let hud = document.getElementById('boss-hud');
-            if(dist < 800 && activeBoss.hp > 0) {
-                hud.style.display = 'block';
-                document.getElementById('boss-fill').style.width = (activeBoss.hp/activeBoss.maxHp)*100+'%';
-            } else hud.style.display = 'none';
+        if(boss) {
+            let bh=document.getElementById('boss-hud');
+            if(Math.abs(p.x-boss.x)<800 && boss.hp>0) {
+                bh.style.display='block'; document.querySelector('.boss-title').innerText=boss.name;
+                document.getElementById('boss-fill').style.width=(boss.hp/boss.max)*100+'%';
+            } else bh.style.display='none';
         }
 
-        for (let i = mobs.length - 1; i >= 0; i--) {
-            let m = mobs[i];
-            let dist = player.x - m.x;
-            let mBlock = getBlock(Math.floor((m.x+m.width/2)/TILE_SIZE), Math.floor((m.y+m.height/2)/TILE_SIZE));
-
-            if (Math.abs(dist) < 600) {
-                if(m.type === 'bat') {
-                    m.vx = (dist > 0 ? 1 : -1) * m.speed;
-                    m.vy = (player.y - m.y > 0 ? 1 : -1) * 1.5;
+        mobs.forEach((m,i)=>{
+            let dist=p.x-m.x;
+            if(Math.abs(dist)<600) {
+                if(m.fly) {
+                    m.vx = (dist>0?1:-1)*m.sp; m.vy = (p.y-m.y>0?1:-1)*1.5;
                 } else {
-                    let speedMult = (mBlock === BLOCKS.WATER) ? 0.5 : 1;
-                    if (dist > 10) m.vx = m.speed * speedMult;
-                    else if (dist < -10) m.vx = -m.speed * speedMult;
-                    if (m.vx !== 0 && isBlocked(m) && m.grounded) m.vy = m.jump;
+                    let inWater = getB(Math.floor(m.x/TILE), Math.floor(m.y/TILE)) === BLOCKS.WATER;
+                    m.vx=(dist>0?1:-1)*m.sp*(inWater?0.5:1);
+                    m.vy+=GRAVITY;
+                    if(isBlk(m)&&m.g) m.vy=-10;
+                    if(m.boss && m.g && Math.random()<0.02) { m.vy=-12; shake=5; } 
                 }
-
-                if (checkRectOverlap(player, m) && gameTime % 20 === 0) {
-                    takeDamage(m.type === 'boss' ? 20+currentLevel : 5+currentLevel);
-                    player.vx = Math.sign(player.x - m.x) * 10; player.vy = -5;
-                }
-            } else { if(!m.fly) m.vx *= 0.9; }
-
-            if(!m.fly) m.vy += GRAVITY;
-            m.x += m.vx; checkEntityCollision(m, 'x');
-            m.y += m.vy; m.grounded = false; checkEntityCollision(m, 'y');
-
-            if(m.hurtTimer > 0) m.hurtTimer--;
-
-            if(m.y > worldHeight * TILE_SIZE + 100) mobs.splice(i, 1);
-            else if(m.hp <= 0) {
-                spawnParticles(m.x/TILE_SIZE, m.y/TILE_SIZE, m.color, 15);
-                player.gold += m.reward;
-                SFX.coin();
-                showToast(`+${m.reward}G`);
-                if(m === activeBoss) { activeBoss = null; document.getElementById('boss-hud').style.display='none'; shake=20; }
-                mobs.splice(i, 1);
+                m.x+=m.vx; col(m,'x'); m.y+=m.vy; m.g=false; col(m,'y');
+                if(isRect(p,m) && time%20===0) { hit(p, m.boss?20+lv:5+lv); p.vx=Math.sign(p.x-m.x)*10; p.vy=-5; }
             }
-        }
-    }
-
-    function updateProjectiles() {
-        for (let i = projectiles.length - 1; i >= 0; i--) {
-            let p = projectiles[i];
-            p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life--;
-            let tx = Math.floor(p.x/TILE_SIZE), ty = Math.floor(p.y/TILE_SIZE);
-            let b = getBlock(tx, ty);
-            if((b !== BLOCKS.AIR && !BLOCK_DEF[b].fluid) || p.life <= 0) {
-                explode(tx, ty, 2); projectiles.splice(i, 1); continue;
+            if(m.hurt>0)m.hurt--;
+            if(m.hp<=0) {
+                p.gold+=m.rw; SFX.coin(); showText(m.x, m.y, `+${m.rw}G`, '#FFD700'); part(m.x/TILE,m.y/TILE,m.c,10);
+                if(m===boss){boss=null;document.getElementById('boss-hud').style.display='none';shake=20;}
+                mobs.splice(i,1);
             }
+        });
+
+        projs.forEach((j,i)=>{
+            j.x+=j.vx; j.y+=j.vy; j.l--; j.vy+=0.2;
+            let tx=Math.floor(j.x/TILE), ty=Math.floor(j.y/TILE);
+            let b=getB(tx,ty);
+            if((b!==BLOCKS.AIR && !DEFS[b].f) || j.l<=0) { projs.splice(i,1); exp(tx,ty,1); return; }
             for(let m of mobs) {
-                if(p.x > m.x && p.x < m.x+m.width && p.y > m.y && p.y < m.y+m.height) {
-                    m.hp -= (30 + player.damage); m.hurtTimer = 10;
-                    spawnParticles(m.x/TILE_SIZE, m.y/TILE_SIZE, '#FF5722', 10);
-                    explode(tx, ty, 1.5); projectiles.splice(i, 1); break;
+                if(j.x>m.x && j.x<m.x+m.w && j.y>m.y && j.y<m.y+m.h) {
+                    m.hp-=30+p.dmg; m.hurt=10; showText(m.x, m.y, 30+p.dmg, '#fff'); projs.splice(i,1); exp(tx,ty,1.5); return;
                 }
             }
-        }
-    }
-
-    function updateTNTs() {
-        for(let i = activeTNTs.length - 1; i >= 0; i--) {
-            let t = activeTNTs[i]; t.timer--;
-            if(t.timer <= 0) { explode(t.x, t.y, 4); activeTNTs.splice(i, 1); }
-        }
-    }
-
-    function updateParticles() {
-        for(let i=particles.length-1; i>=0; i--) {
-            let p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.2; p.life--;
-            if(p.life<=0) particles.splice(i,1);
-        }
-        for(let i=weatherParticles.length-1; i>=0; i--) {
-            let p=weatherParticles[i]; p.x += (p.vx||0) - player.vx; p.y += p.vy;
-            if(p.y > height) weatherParticles.splice(i,1);
-        }
-    }
-
-    // --- 상호작용 및 물리 함수 ---
-    function handleInteraction(button, mx, my) {
-        if(player.actionTimer > 0) return;
-        
-        let worldX = mx + camera.x;
-        let worldY = my + camera.y;
-        let tx = Math.floor(worldX / TILE_SIZE);
-        let ty = Math.floor(worldY / TILE_SIZE);
-
-        let selected = inventory[selectedSlot];
-
-        // 도구 사용 (칼/지팡이) - 화면 어디든 터치 시 발동
-        if (button === 0 && (selected === ITEMS.SWORD || selected === ITEMS.WAND)) {
-            if(player.attackTimer <= 0) {
-                if(selected === ITEMS.SWORD) {
-                    performAttack();
-                    SFX.place();
-                } else {
-                    shootWand(worldX, worldY);
-                    SFX.place();
-                }
-                player.actionTimer = 10;
-            }
-            return;
-        }
-
-        // 거리 제한 (채굴/건설)
-        let dist = Math.hypot(player.x + player.width/2 - worldX, player.y + player.height/2 - worldY);
-        if (dist > INTERACTION_RANGE) return;
-        
-        player.actionTimer = 8;
-
-        if (button === 0) { // Mine (좌클릭/채굴 모드)
-            let current = getBlock(tx, ty);
-            if (current === BLOCKS.TNT) {
-                setBlock(tx, ty, BLOCKS.AIR); activeTNTs.push({x:tx, y:ty, timer:100}); SFX.place();
-            } else if (current !== BLOCKS.AIR && current !== BLOCKS.GOAL) {
-                if (player.gold >= 1) {
-                    player.gold--;
-                    let def = BLOCK_DEF[current];
-                    if(def.value) { player.gold += def.value; SFX.coin(); showToast(`+${def.value}G`); }
-                    else SFX.place();
-                    spawnParticles(tx, ty, def.color, 5);
-                    setBlock(tx, ty, BLOCKS.AIR);
-                } else showToast("골드 부족!");
-            }
-        } else if (button === 2) { // Place (우클릭/건설 모드)
-            // 플레이어와 겹치는지 확인
-            let px = player.x/TILE_SIZE, py = player.y/TILE_SIZE;
-            if (!(tx >= px + player.width/TILE_SIZE || tx+1 <= px || ty >= py + player.height/TILE_SIZE || ty+1 <= py)) return;
-            
-            let current = getBlock(tx, ty);
-            if (current === BLOCKS.AIR || BLOCK_DEF[current].fluid) {
-                let cost = (selected===BLOCKS.WATER?5:(selected===BLOCKS.LAVA?30:1));
-                if (player.gold >= cost) {
-                    player.gold -= cost; setBlock(tx, ty, selected); SFX.place();
-                } else showToast("골드 부족!");
-            }
-        }
-    }
-
-    function performAttack() {
-        player.attackTimer = 15;
-        let reach = 80;
-        let hitX = player.facingRight ? player.x + player.width/2 - 10 : player.x + player.width/2 - reach + 10;
-        let hitRect = {x: hitX, y: player.y - 10, width: reach, height: player.height + 20};
-        
-        mobs.forEach(m => {
-            if(checkRectOverlap(hitRect, m)) {
-                m.hp -= player.damage; m.hurtTimer = 10; m.vy = -5;
-                m.vx = player.facingRight ? 8 : -8;
-                spawnParticles(m.x/TILE_SIZE, m.y/TILE_SIZE, '#fff', 5);
-                SFX.hit(); shake = 2;
-            }
         });
+
+        tnts.forEach((t,i)=>{t.tm--; if(t.tm<=0){exp(t.x,t.y,4);tnts.splice(i,1);}});
+        parts.forEach((pt,i)=>{pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.2; pt.l--; if(pt.l<=0)parts.splice(i,1);});
+        wParts.forEach((wp,i)=>{wp.x+=(wp.vx-p.vx); wp.y+=wp.vy; if(wp.y>H)wParts.splice(i,1);});
+        floatTexts.forEach((ft, i) => { ft.y -= 1; ft.l--; if(ft.l <= 0) floatTexts.splice(i, 1); });
     }
 
-    function shootWand(mx, my) {
-        let angle = Math.atan2(my - (player.y+20), mx - (player.x+14));
-        projectiles.push({x:player.x+14, y:player.y+20, vx:Math.cos(angle)*10, vy:Math.sin(angle)*10, life:60});
-    }
-
-    function explode(cx, cy, radius) {
-        SFX.exp(); shake = radius*3;
-        spawnParticles(cx, cy, '#f00', 30);
-        let r = Math.ceil(radius);
-        for(let y=cy-r; y<=cy+r; y++) for(let x=cx-r; x<=cx+r; x++) {
-            if((x-cx)**2 + (y-cy)**2 <= radius**2) {
-                if(getBlock(x,y)!==BLOCKS.GOAL && getBlock(x,y)!==BLOCKS.BRICK) setBlock(x,y,BLOCKS.AIR);
-            }
-        }
-        mobs.forEach(m=>{
-            if(Math.hypot(m.x/TILE_SIZE-cx, m.y/TILE_SIZE-cy) < radius) { m.hp-=50; m.vy=-10; }
-        });
-    }
-
-    // --- 유틸리티 ---
-    function getBlock(x, y) { if(x>=0 && x<worldWidth && y>=0 && y<worldHeight) return world[y][x]; return BLOCKS.AIR; }
-    function setBlock(x, y, id) { if(x>=0 && x<worldWidth && y>=0 && y<worldHeight) world[y][x] = id; }
-    function checkRectOverlap(a, b) { return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y; }
-    function checkEntityCollision(ent, axis) {
-        let left = Math.floor(ent.x/TILE_SIZE), right = Math.floor((ent.x+ent.width-0.01)/TILE_SIZE);
-        let top = Math.floor(ent.y/TILE_SIZE), bottom = Math.floor((ent.y+ent.height-0.01)/TILE_SIZE);
-        for(let y=top; y<=bottom; y++) for(let x=left; x<=right; x++) {
-            let b = getBlock(x, y); let def = BLOCK_DEF[b];
-            if(b===BLOCKS.AIR || (def && def.fluid)) continue;
-            if(b===BLOCKS.SPIKE && ent===player) { takeDamage(10); ent.vy=-10; }
-            if(b!==BLOCKS.GOAL && b!==BLOCKS.SPIKE && (!def || !def.alpha)) {
-                if(axis==='x') { ent.x = ent.vx>0 ? x*TILE_SIZE-ent.width : (x+1)*TILE_SIZE; ent.vx=0; }
-                else { if(ent.vy>0){ent.y=y*TILE_SIZE-ent.height; ent.grounded=true;} else ent.y=(y+1)*TILE_SIZE; ent.vy=0; }
+    function getB(x,y){return(x>=0&&x<ww&&y>=0&&y<wh)?world[y][x]:BLOCKS.AIR;}
+    function setB(x,y,id){if(x>=0&&x<ww&&y>=0&&y<wh)world[y][x]=id;}
+    function isRect(a,b){return a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y;}
+    function col(e,ax) {
+        let l=Math.floor(e.x/TILE), r=Math.floor((e.x+e.w-0.1)/TILE);
+        let t=Math.floor(e.y/TILE), b=Math.floor((e.y+e.h-0.1)/TILE);
+        for(let y=t;y<=b;y++)for(let x=l;x<=r;x++){
+            let id=getB(x,y), d=DEFS[id];
+            if(id===BLOCKS.AIR||(d&&d.f))continue;
+            if(id===BLOCKS.SPIKE&&e===p)hit(p,10);
+            if(id!==BLOCKS.GOAL&&id!==BLOCKS.SPIKE&&(!d||!d.a)) {
+                if(ax==='x'){e.x=e.vx>0?x*TILE-e.w:(x+1)*TILE;e.vx=0;}
+                else{if(e.vy>0){e.y=y*TILE-e.h;e.g=true;}else e.y=(y+1)*TILE;e.vy=0;}
                 return;
             }
         }
     }
-    function isBlocked(e) {
-        let tx = Math.floor((e.x + (e.vx>0?e.width+5:-5))/TILE_SIZE);
-        let ty = Math.floor((e.y+e.height-5)/TILE_SIZE);
-        let b = getBlock(tx, ty); return b!==BLOCKS.AIR && !BLOCK_DEF[b].fluid;
-    }
-    function takeDamage(amt) {
-        if(player.invulnerable>0)return;
-        player.hp-=amt; player.invulnerable=20; damageFlash=0.6; shake=5; SFX.hit(); updateHUD();
-    }
-    function spawnParticles(tx, ty, c, n) {
-        for(let i=0; i<n; i++) particles.push({x:tx*TILE_SIZE+20, y:ty*TILE_SIZE+20, vx:(Math.random()-.5)*10, vy:(Math.random()-.5)*10, life:30, color:c, size:Math.random()*5+2});
+    function isBlk(e) {
+        let tx=Math.floor((e.x+(e.vx>0?e.w+5:-5))/TILE), ty=Math.floor((e.y+e.h-5)/TILE);
+        let b=getB(tx,ty); return b!==BLOCKS.AIR && !DEFS[b].f;
     }
 
-    // --- UI 및 시스템 ---
-    function completeLevel() {
-        if(gameState==="SHOP") return;
-        gameState="SHOP"; player.gold+=100; SFX.coin();
-        saveGame();
-        document.getElementById('overlay').style.display='flex';
-        document.getElementById('shop-menu').style.display='block';
-        document.getElementById('shop-gold').innerText=player.gold;
-    }
-    function die() {
-        gameState="DEAD";
-        document.getElementById('overlay').style.display='flex';
-        document.getElementById('shop-menu').style.display='none';
-        document.getElementById('death-menu').style.display='block';
-        document.getElementById('death-level').innerText=currentLevel;
-    }
-    function restartGame() { player.hp=player.maxHp; generateLevel(currentLevel); startGame(false); }
-    window.nextLevel = function() { currentLevel++; generateLevel(currentLevel); gameState="PLAY"; document.getElementById('overlay').style.display='none'; }
-    
-    function saveGame() {
-        const data = { lvl: currentLevel, hp: player.hp, maxHp: player.maxHp, gold: player.gold, spd: player.speed, dmg: player.damage, wand: player.hasWand, inv: inventory };
-        localStorage.setItem('vq_orig_save', JSON.stringify(data));
-        showToast("자동 저장됨");
-    }
-    function showToast(msg) { let t=document.getElementById('toast'); t.innerText=msg; t.style.opacity=1; setTimeout(()=>t.style.opacity=0, 1500); }
+    function interact(btn, mx, my) {
+        let wx=mx+cam.x, wy=my+cam.y;
+        let tx=Math.floor(wx/TILE), ty=Math.floor(wy/TILE);
+        let it=inv[slot];
 
-    window.buyItem = function(t) {
-        let cost=0;
-        if(t==='heal'){cost=50;if(player.gold>=cost)player.hp=Math.min(player.hp+50,player.maxHp);}
-        if(t==='damage'){cost=200;if(player.gold>=cost)player.damage+=10;}
-        if(t==='speed'){cost=150;if(player.gold>=cost)player.speed++;}
-        if(t==='maxhp'){cost=300;if(player.gold>=cost){player.maxHp+=50;player.hp+=50;}}
-        if(t==='wand'){cost=500;if(player.gold>=cost&&!player.hasWand){player.hasWand=true;inventory.push(ITEMS.WAND);updateInventoryUI();}}
-        if(player.gold>=cost){player.gold-=cost;SFX.coin();updateHUD();document.getElementById('shop-gold').innerText=player.gold;}
-        else showToast("골드 부족!");
-    };
+        if(btn===0 && (it===ITEMS.SWORD||it===ITEMS.WAND)) {
+            if(it===ITEMS.SWORD) {
+                let r={x:p.x+(p.dir===1?0:-60), y:p.y, w:80, h:50};
+                mobs.forEach(m=>{if(isRect(r,m)){
+                    m.hp-=p.dmg; m.hurt=10; m.vy=-5; 
+                    showText(m.x, m.y, p.dmg, '#fff'); SFX.hit();
+                }});
+            } else {
+                let a=Math.atan2(wy-(p.y+20), wx-(p.x+14));
+                projs.push({x:p.x+14,y:p.y+20,vx:Math.cos(a)*10,vy:Math.sin(a)*10,l:60});
+                SFX.hit();
+            }
+            return;
+        }
 
-    function updateHUD() {
-        document.getElementById('ui-level').innerText=currentLevel;
-        document.getElementById('ui-gold').innerText=player.gold;
-        document.getElementById('ui-hp').innerText=Math.floor(player.hp);
-        document.getElementById('ui-max').innerText=player.maxHp;
-        document.getElementById('hp-bar').style.width = Math.max(0, player.hp/player.maxHp*100)+'%';
-        
-        let bb = document.getElementById('breath-box');
-        if(player.inWater) { bb.style.display='block'; document.getElementById('breath-bar').style.width=player.breath+'%'; }
-        else bb.style.display='none';
+        if(Math.hypot(p.x+14-wx, p.y+19-wy) > RANGE) return;
+
+        if(btn===0) { // Mine
+            let b=getB(tx,ty);
+            if(b===BLOCKS.TNT){setB(tx,ty,BLOCKS.AIR);tnts.push({x:tx,y:ty,tm:100});SFX.place();}
+            else if(b!==BLOCKS.AIR && b!==BLOCKS.GOAL) {
+                if(p.gold>=1) {
+                    p.gold--; let d=DEFS[b]; if(d.v){p.gold+=d.v;SFX.coin();showText(wx,wy,`+${d.v}G`,'#FFD700');}
+                    part(tx,ty,d.c,5); setB(tx,ty,BLOCKS.AIR); SFX.place();
+                } else showText(wx,wy,"골드 부족!",'#ff5252');
+            }
+        } else if(btn===2) { // Place
+            // 플레이어 겹침 방지
+            let px=p.x/TILE, py=p.y/TILE, pw=p.w/TILE, ph=p.h/TILE;
+            if (!(tx >= px+pw || tx+1 <= px || ty >= py+ph || ty+1 <= py)) return;
+
+            if(getB(tx,ty)===BLOCKS.AIR || DEFS[getB(tx,ty)].f) {
+                let c=(it===BLOCKS.WATER?5:(it===BLOCKS.LAVA?30:1));
+                if(p.gold>=c){p.gold-=c;setB(tx,ty,it);SFX.place();} else showText(wx,wy,"골드 부족!",'#ff5252');
+            }
+        }
     }
 
-    function updateInventoryUI() {
-        const bar = document.getElementById('inventory-bar'); bar.innerHTML = '';
-        inventory.forEach((item, i) => {
-            let el = document.createElement('div');
-            el.className = 'slot' + (i===selectedSlot?' active':'');
-            let def = BLOCK_DEF[item];
-            if(def.type === 'tool') el.innerHTML = `<span class="slot-icon">${def.icon}</span>`;
-            else el.innerHTML = `<div class="slot-block" style="background:${def.color};${def.top?`border-top:4px solid ${def.top}`:''}"></div>`;
-            el.onclick = () => { selectedSlot = i; updateInventoryUI(); };
-            bar.appendChild(el);
+    function hit(e,d) { if(e.inv>0)return; e.hp-=d; e.inv=20; if(e===p){flash=0.6;shake=5;updHud();showText(p.x,p.y,`-${d}`,'#ff5252');} SFX.hit(); }
+    function exp(cx,cy,r) {
+        SFX.exp(); shake=r*3; part(cx,cy,'#f00',30);
+        let rr=Math.ceil(r);
+        for(let y=cy-rr; y<=cy+rr; y++) for(let x=cx-rr; x<=cx+rr; x++) {
+            if((x-cx)**2+(y-cy)**2 <= r**2 && getB(x,y)!==BLOCKS.GOAL) setB(x,y,BLOCKS.AIR);
+        }
+        mobs.forEach(m=>{if(Math.hypot(m.x/TILE-cx,m.y/TILE-cy)<r){m.hp-=50;m.vy=-10;showText(m.x,m.y,"50",'#fff');}});
+    }
+    function part(tx,ty,c,n) { for(let i=0;i<n;i++)parts.push({x:tx*TILE+20,y:ty*TILE+20,vx:(Math.random()-.5)*10,vy:(Math.random()-.5)*10,l:20+Math.random()*20,c:c,s:Math.random()*5+2}); }
+    function showText(x, y, txt, c) { floatTexts.push({x, y, txt, c, l:40}); }
+
+    function win(){state="SHOP";p.gold+=100;save();document.getElementById('overlay').style.display='flex';document.getElementById('shop-menu').style.display='block';document.getElementById('shop-gold').innerText=p.gold;}
+    function die(){state="DEAD";document.getElementById('overlay').style.display='flex';document.getElementById('shop-menu').style.display='none';document.getElementById('death-menu').style.display='block';}
+    function restartGame(){p.hp=p.max;genLevel(lv);startGame(false);}
+    window.nextLevel=()=>{lv++;genLevel(lv);state="PLAY";document.getElementById('overlay').style.display='none';}
+    function save(){localStorage.setItem('vq_true_save',JSON.stringify({l:lv,hp:p.hp,mx:p.max,g:p.gold,s:p.sp,d:p.dmg,w:p.wand,i:inv}));toast("저장됨");}
+    function toast(m){let t=document.getElementById('toast');t.innerText=m;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,1500);}
+    function updHud(){
+        document.getElementById('ui-level').innerText=lv; document.getElementById('ui-gold').innerText=p.gold;
+        document.getElementById('ui-hp').innerText=Math.floor(p.hp); document.getElementById('ui-max').innerText=p.max;
+        document.getElementById('hp-bar').style.width=Math.max(0,p.hp/p.max*100)+'%';
+        let bb=document.getElementById('breath-box'); if(p.air<100){bb.style.display='block';document.getElementById('breath-bar').style.width=p.air+'%';}else bb.style.display='none';
+    }
+    function updInv(){
+        let b=document.getElementById('inventory-bar'); b.innerHTML='';
+        inv.forEach((id,i)=>{
+            let d=DEFS[id], el=document.createElement('div'); el.className='slot'+(i===slot?' active':'');
+            el.innerHTML=d.tool?`<span class="slot-icon">${d.i}</span>`:`<div class="slot-block" style="background:${d.c};${d.top?`border-top:4px solid ${d.top}`:''}"></div>`;
+            el.onclick=()=>{slot=i;updInv();}; b.appendChild(el);
         });
     }
+    window.buyItem=function(t){
+        let c=0;
+        if(t==='heal'){c=50;if(p.gold>=c)p.hp=Math.min(p.hp+50,p.max);}
+        if(t==='damage'){c=200;if(p.gold>=c)p.dmg+=10;}
+        if(t==='speed'){c=150;if(p.gold>=c)p.sp++;}
+        if(t==='maxhp'){c=300;if(p.gold>=c){p.max+=50;p.hp+=50;}}
+        if(t==='wand'){c=500;if(p.gold>=c&&!p.wand){p.wand=true;inv.push(ITEMS.WAND);updInv();}}
+        if(p.gold>=c){p.gold-=c;SFX.coin();updHud();document.getElementById('shop-gold').innerText=p.gold;}else toast("골드 부족!");
+    }
 
-    // --- 그리기 ---
+    function lum(hex,l) {
+        hex=String(hex).replace(/[^0-9a-f]/gi,''); if(hex.length<6)hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+        let rgb="#",c; for(let i=0;i<3;i++){ c=parseInt(hex.substr(i*2,2),16); c=Math.round(Math.min(Math.max(0,c+(c*l)),255)).toString(16); rgb+=("00"+c).substr(c.length); } return rgb;
+    }
+    function draw3D(x,y,c,d,f,a) {
+        let sz=TILE, dp=DEPTH, top=d.top||lum(c,0.2), side=lum(c,-0.2);
+        if(a)ctx.globalAlpha=a;
+        if(weather==="SNOW" && d.top) top="#FFF"; 
+
+        let bx=Math.floor(x/sz), by=Math.floor(y/sz);
+        if(!f && getB(bx+1,by)===BLOCKS.AIR) {
+            ctx.fillStyle=side; ctx.beginPath(); ctx.moveTo(x+sz,y); ctx.lineTo(x+sz+dp,y-dp); ctx.lineTo(x+sz+dp,y+sz-dp); ctx.lineTo(x+sz,y+sz); ctx.fill();
+        }
+        if((!f&&getB(bx,by-1)===BLOCKS.AIR)||(f&&getB(bx,by-1)===BLOCKS.AIR)) {
+            ctx.fillStyle=top; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+dp,y-dp); ctx.lineTo(x+sz+dp,y-dp); ctx.lineTo(x+sz,y); ctx.fill();
+        }
+        ctx.fillStyle=c;
+        if(f&&getB(bx,by-1)===BLOCKS.AIR) ctx.fillRect(x,y+6,sz,sz-6); 
+        else {
+            ctx.fillRect(x,y,sz,sz);
+            if(d.dot){ ctx.fillStyle=d.dot; ctx.fillRect(x+10,y+10,8,8); ctx.fillRect(x+25,y+25,6,6); }
+            if(d.top && weather!=="SNOW"){ ctx.fillStyle=d.top; ctx.fillRect(x,y,sz,8); }
+            if(d.top && weather==="SNOW"){ ctx.fillStyle="#FFF"; ctx.fillRect(x,y,sz,8); }
+            if(d.txt){ ctx.fillStyle='#fff'; ctx.font='bold 12px sans-serif'; ctx.fillText(d.txt,x+8,y+25); }
+            if(d.s){ ctx.fillStyle='#333'; ctx.beginPath(); ctx.moveTo(x,y+sz); ctx.lineTo(x+sz/2,y); ctx.lineTo(x+sz,y+sz); ctx.fill(); }
+        }
+        ctx.globalAlpha=1;
+    }
+    function drawEnt(e,c) {
+        let d=4, s=lum(c,-0.3);
+        ctx.fillStyle=s; ctx.fillRect(e.x+d,e.y-d,e.w,e.h);
+        ctx.fillStyle=c; ctx.fillRect(e.x,e.y,e.w,e.h);
+    }
+
     function draw() {
-        let timeNorm = (Math.sin(gameTime * 0.001) + 1) / 2;
-        let r, g, b;
-        if (weather === "RAIN") { r = 50; g = 60; b = 80; } 
-        else { r = Math.floor(135 * timeNorm); g = Math.floor(206 * timeNorm); b = Math.floor(235 * timeNorm); }
-        ctx.fillStyle = `rgb(${Math.max(20,r)},${Math.max(20,g)},${Math.max(50,b)})`;
-        ctx.fillRect(0, 0, width, height);
+        let tn=(Math.sin(time*0.001)+1)/2, r,g,b;
+        if(weather==="RAIN"){r=40;g=50;b=70;} else {r=Math.floor(100*tn);g=Math.floor(180*tn);b=Math.floor(220*tn);}
+        ctx.fillStyle=`rgb(${Math.max(20,r)},${Math.max(20,g)},${Math.max(50,b)})`; ctx.fillRect(0,0,W,H);
 
-        // 배경 산 (패럴랙스)
-        ctx.fillStyle = weather==="RAIN" ? `rgba(0,0,0,0.4)` : `rgba(0,0,0,0.2)`;
-        ctx.beginPath(); ctx.moveTo(0, height);
-        for(let i=0; i<=width; i+=10) ctx.lineTo(i, height - (150 + Math.sin((i+camera.x*0.1)*0.005)*50));
-        ctx.lineTo(width, height); ctx.fill();
+        if(weather==="NONE") {
+            ctx.fillStyle = tn > 0.5 ? '#FFD700' : '#F4F6F0';
+            let sunY = H/2 + Math.cos(time*0.001)*(H/2+50), sunX = W/2 + Math.sin(time*0.001)*(W/2);
+            ctx.beginPath(); ctx.arc(sunX,sunY,40,0,Math.PI*2); ctx.fill();
+        }
+
+        ctx.fillStyle=weather==="RAIN"?`rgba(0,0,0,0.4)`:`rgba(0,0,0,0.1)`;
+        ctx.beginPath(); ctx.moveTo(0,H);
+        for(let i=0;i<=W;i+=10)ctx.lineTo(i,H-(150+Math.sin((i+cam.x*0.1)*0.005)*50));
+        ctx.lineTo(W,H); ctx.fill();
 
         ctx.save();
-        let cx = Math.floor(camera.x), cy = Math.floor(camera.y);
-        ctx.translate(-cx + (Math.random()-.5)*shake, -cy + (Math.random()-.5)*shake);
+        let cx=Math.floor(cam.x), cy=Math.floor(cam.y);
+        ctx.translate(-cx+(Math.random()-.5)*shake, -cy+(Math.random()-.5)*shake);
+        let sc=Math.floor(cx/TILE), ec=sc+Math.ceil(W/TILE)+1, sr=Math.floor(cy/TILE), er=sr+Math.ceil(H/TILE)+1;
 
-        let sc=Math.floor(cx/TILE_SIZE), ec=sc+Math.ceil(width/TILE_SIZE)+1;
-        let sr=Math.floor(cy/TILE_SIZE), er=sr+Math.ceil(height/TILE_SIZE)+1;
-
-        for(let y=Math.max(0,sr); y<Math.min(worldHeight,er); y++) {
-            if(!world[y]) continue;
-            for(let x=Math.max(0,sc); x<Math.min(worldWidth,ec); x++) {
-                let type = world[y][x];
-                if (type !== BLOCKS.AIR) {
-                    let def = BLOCK_DEF[type];
-                    let px = x * TILE_SIZE, py = y * TILE_SIZE;
-                    if(def.alpha) ctx.globalAlpha = def.alpha;
-                    ctx.fillStyle = def.color;
-
-                    if (type === BLOCKS.WATER && (!world[y-1] || world[y-1][x]===BLOCKS.AIR)) {
-                        ctx.fillRect(px, py+6, TILE_SIZE, TILE_SIZE-6);
-                        ctx.fillStyle="rgba(255,255,255,0.4)"; ctx.fillRect(px,py+6,TILE_SIZE,3);
-                    } else if(def.spike) {
-                        ctx.beginPath();ctx.moveTo(px,py+TILE_SIZE);ctx.lineTo(px+TILE_SIZE/2,py);ctx.lineTo(px+TILE_SIZE,py+TILE_SIZE);ctx.fill();
-                    } else {
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                        if(def.top) { ctx.fillStyle=def.top; ctx.fillRect(px, py, TILE_SIZE, 8); }
-                        if(def.speckle) { ctx.fillStyle=def.speckle; ctx.fillRect(px+10, py+10, 6, 6); }
-                        if(def.label) { ctx.fillStyle='white'; ctx.font='10px arial'; ctx.fillText(def.label, px+8, py+24); }
-                    }
-                    ctx.globalAlpha = 1.0;
+        for(let y=Math.min(wh,er)-1; y>=Math.max(0,sr); y--) {
+            if(!world[y])continue;
+            for(let x=Math.min(ww,ec)-1; x>=Math.max(0,sc); x--) {
+                let id=world[y][x];
+                if(id!==BLOCKS.AIR) {
+                    let d=DEFS[id], px=x*TILE, py=y*TILE;
+                    draw3D(px,py,d.c,d,d.f,d.a);
                 }
             }
         }
-
-        activeTNTs.forEach(t => {
-            ctx.fillStyle = (Math.floor(gameTime/5)%2===0) ? "#fff" : "#d32f2f";
-            ctx.fillRect(t.x*TILE_SIZE, t.y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        
+        tnts.forEach(t=>draw3D(t.x*TILE,t.y*TILE,(Math.floor(time/5)%2===0)?"#fff":"#d32f2f",{txt:"TNT"},false));
+        mobs.forEach(m=>{
+            drawEnt(m,m.hurt>0?'#fff':m.c);
+            ctx.fillStyle='#333';ctx.fillRect(m.x,m.y-8,m.w,4);
+            ctx.fillStyle='#0f0';ctx.fillRect(m.x,m.y-8,m.w*(m.hp/m.max),4);
         });
-
-        mobs.forEach(m => {
-            ctx.fillStyle = m.hurtTimer > 0 ? '#fff' : m.color;
-            ctx.fillRect(m.x, m.y, m.width, m.height);
-            ctx.fillStyle = 'red'; ctx.fillRect(m.x, m.y-8, m.width, 4);
-            ctx.fillStyle = '#0f0'; ctx.fillRect(m.x, m.y-8, m.width * (m.hp/m.maxHp), 4);
-            if(m.type==='boss') {
-                ctx.fillStyle='black'; ctx.fillRect(m.x+10, m.y+20, 10, 10); ctx.fillRect(m.x+m.width-20, m.y+20, 10, 10);
-            }
-        });
-
-        projectiles.forEach(p => {
-            ctx.fillStyle = '#FF5722'; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
-        });
-
-        ctx.fillStyle = '#FFC107'; ctx.fillRect(player.x, player.y, player.width, player.height);
-        ctx.fillStyle = '#1E88E5'; ctx.fillRect(player.x, player.y + 16, player.width, 12);
-        ctx.fillStyle = 'black';
-        let faceOffset = player.facingRight ? 4 : -4;
-        ctx.fillRect(player.x+14+faceOffset-6, player.y+8, 4, 4); ctx.fillRect(player.x+14+faceOffset+2, player.y+8, 4, 4);
-
-        let item = inventory[selectedSlot];
-        if (item === ITEMS.SWORD || item === ITEMS.WAND) {
-            ctx.save(); ctx.translate(player.x + player.width/2, player.y + 20);
-            if (!player.facingRight) ctx.scale(-1, 1);
-            let rot = 0; if (player.attackTimer > 0) rot = -Math.PI / 3;
-            ctx.rotate(rot);
-            ctx.fillStyle = BLOCK_DEF[item].color; ctx.fillRect(10, -4, 20, 6);
+        projs.forEach(p=>{ctx.fillStyle='#FF5722';ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);ctx.fill();});
+        
+        drawEnt(p,'#FFC107');
+        ctx.fillStyle='#1E88E5'; ctx.fillRect(p.x,p.y+16,p.w,12);
+        ctx.fillStyle='black'; let fo=p.dir===1?4:-4;
+        ctx.fillRect(p.x+14+fo-6,p.y+8,4,4); ctx.fillRect(p.x+14+fo+2,p.y+8,4,4);
+        
+        let it=inv[slot];
+        if(it===ITEMS.SWORD||it===ITEMS.WAND) {
+            ctx.save(); ctx.translate(p.x+p.w/2,p.y+20);
+            if(p.dir===-1)ctx.scale(-1,1);
+            if(p.inv>5)ctx.rotate(-1);
+            ctx.fillStyle=lum(DEFS[it].c,-0.3); ctx.fillRect(12,-6,20,6);
+            ctx.fillStyle=DEFS[it].c; ctx.fillRect(10,-4,20,6);
             ctx.restore();
         }
 
-        particles.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size); });
+        parts.forEach(pt=>{ctx.fillStyle=pt.c;ctx.fillRect(pt.x,pt.y,pt.s,pt.s);});
         
+        if(mouse.active) {
+            let tx=Math.floor((mouse.x+cx)/TILE)*TILE, ty=Math.floor((mouse.y+cy)/TILE)*TILE;
+            ctx.strokeStyle = mode==="MINE" ? 'rgba(255, 82, 82, 0.8)' : 'rgba(0, 176, 255, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(tx, ty, TILE, TILE);
+        }
+
+        floatTexts.forEach(ft => {
+            ctx.fillStyle = ft.c; ctx.font = "bold 16px sans-serif";
+            ctx.strokeStyle = "black"; ctx.lineWidth = 3;
+            ctx.strokeText(ft.txt, ft.x, ft.y); ctx.fillText(ft.txt, ft.x, ft.y);
+        });
+
         ctx.restore();
 
-        if (weather !== "NONE") {
-            ctx.fillStyle = weather === "RAIN" ? "#64B5F6" : "#FFF";
-            weatherParticles.forEach(p => { 
-                let px = p.x % width; if(px<0) px+=width;
-                ctx.fillRect(px, p.y, p.type==='rain'?2:4, p.type==='rain'?10:4); 
-            });
+        if(weather!=="NONE") {
+            ctx.fillStyle=weather==="RAIN"?"#64B5F6":"#FFF";
+            wParts.forEach(wp=>{ let px=wp.x%W; if(px<0)px+=W; ctx.fillRect(px,wp.y,wp.t==="RAIN"?2:4,wp.t==="RAIN"?10:4); });
         }
-        if (damageFlash > 0) { ctx.fillStyle = `rgba(255, 0, 0, ${damageFlash})`; ctx.fillRect(0, 0, width, height); }
+        if(flash>0){ctx.fillStyle=`rgba(255,0,0,${flash})`;ctx.fillRect(0,0,W,H);}
     }
+
+    window.toggleSound = toggleSound;
+    window.startGame = startGame;
+    window.loadGame = loadGame;
+    window.restartGame = restartGame;
+    window.nextLevel = nextLevel;
+    window.buyItem = buyItem;
+
+})();
 </script>
 </body>
 </html>
