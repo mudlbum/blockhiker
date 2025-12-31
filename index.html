@@ -3,42 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Voxel Quest: True Complete Edition</title>
+    <title>Voxel Quest: Final Fixed</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #222; font-family: 'Segoe UI', sans-serif; user-select: none; touch-action: none; -webkit-user-select: none; }
+        /* --- 기본 스타일 --- */
+        body { margin: 0; overflow: hidden; background: #111; font-family: 'Segoe UI', sans-serif; user-select: none; touch-action: none; -webkit-user-select: none; }
         canvas { display: block; touch-action: none; }
 
         /* UI 레이어 */
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         
-        /* HUD */
+        /* HUD (상태창) */
         #hud {
             position: absolute; top: 10px; left: 10px;
-            color: white; font-weight: bold; font-size: 16px;
-            text-shadow: 2px 2px 0 #000; display: flex; flex-direction: column; gap: 6px; pointer-events: none;
+            color: white; font-weight: bold; font-size: 15px;
+            text-shadow: 2px 2px 0 #000; display: flex; flex-direction: column; gap: 8px; pointer-events: none;
         }
         .stat-card {
-            background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.8) 100%);
-            padding: 10px 14px; border-radius: 8px; border: 2px solid #555;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.9) 100%);
+            padding: 8px 12px; border-radius: 8px; border: 2px solid #666;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 4px;
         }
-        .hp-bar-bg { width: 150px; height: 14px; background: #330000; border: 1px solid #fff; margin-top: 4px; position: relative; }
-        .hp-bar-fill { height: 100%; background: linear-gradient(90deg, #ff5252, #d50000); transition: width 0.1s; }
-        .breath-bar { height: 6px; background: #00B0FF; margin-top: 2px; display: none; }
+        .row { display: flex; justify-content: space-between; align-items: center; min-width: 140px; }
+        .gold-txt { color: #FFD700; margin-left: 10px; }
+        
+        .bar-bg { width: 140px; height: 12px; background: #330; border: 1px solid #fff; position: relative; border-radius: 2px; overflow: hidden; }
+        .hp-fill { height: 100%; background: linear-gradient(90deg, #ff5252, #d50000); transition: width 0.1s; }
+        .air-fill { height: 100%; background: linear-gradient(90deg, #40C4FF, #0288D1); transition: width 0.1s; }
+        #breath-con { display: none; margin-top: 4px; }
 
-        /* 보스 HUD */
+        /* 보스 체력바 */
         #boss-hud {
             position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
-            width: 300px; display: none; text-align: center;
+            width: 60%; max-width: 400px; display: none; text-align: center;
         }
-        .boss-title { color: #FF4081; font-weight: bold; text-shadow: 2px 2px 0 #000; margin-bottom: 4px; font-size: 18px; }
-        .boss-bar-bg { width: 100%; height: 16px; background: #222; border: 2px solid #fff; box-shadow: 0 0 15px rgba(0,0,0,0.7); }
+        .boss-name { color: #FF4081; font-weight: bold; text-shadow: 2px 2px 0 #000; margin-bottom: 4px; font-size: 18px; }
+        .boss-bar-bg { width: 100%; height: 16px; background: #222; border: 2px solid #fff; box-shadow: 0 0 15px rgba(0,0,0,0.8); border-radius: 4px; overflow: hidden; }
         .boss-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #FF4081, #C51162); transition: width 0.2s; }
 
         /* 인벤토리 */
         #inventory-bar {
             position: absolute; top: 10px; right: 10px;
-            display: flex; gap: 6px; width: 240px; overflow-x: auto;
+            display: flex; gap: 6px; max-width: 50%; overflow-x: auto;
             background: rgba(0,0,0,0.7); padding: 8px; border-radius: 12px;
             pointer-events: auto; white-space: nowrap; -webkit-overflow-scrolling: touch;
             border: 2px solid #555;
@@ -48,33 +53,41 @@
             flex: 0 0 48px; width: 48px; height: 48px;
             background: rgba(255,255,255,0.1); border: 2px solid #444;
             display: flex; justify-content: center; align-items: center;
-            border-radius: 8px; position: relative;
+            border-radius: 8px; position: relative; cursor: pointer; transition: transform 0.1s;
         }
-        .slot.active { border-color: #FFD700; background: rgba(255,215,0,0.25); transform: scale(1.1); box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); z-index:10; }
-        .slot-icon { font-size: 26px; filter: drop-shadow(2px 2px 0 #000); }
-        .slot-block { width: 26px; height: 26px; border: 1px solid rgba(0,0,0,0.3); box-shadow: 2px 2px 0 rgba(0,0,0,0.5); }
+        .slot.active { border-color: #FFD700; background: rgba(255,215,0,0.3); transform: scale(1.1); box-shadow: 0 0 10px #FFD700; z-index: 10; }
+        .slot-icon { font-size: 28px; filter: drop-shadow(2px 2px 0 #000); }
+        .slot-block { width: 24px; height: 24px; border: 1px solid rgba(0,0,0,0.5); box-shadow: 3px 3px 0 rgba(0,0,0,0.5); }
 
-        /* 컨트롤러 */
+        /* PC용 도움말 */
+        #pc-help {
+            position: absolute; bottom: 20px; left: 20px;
+            color: rgba(255,255,255,0.6); font-size: 13px;
+            background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px;
+            display: none; pointer-events: none;
+        }
+
+        /* 모바일 컨트롤러 */
         #controls {
             position: absolute; bottom: 20px; width: 100%; height: 140px;
             pointer-events: none; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box;
         }
-        .btn-group { display: flex; gap: 15px; align-items: flex-end; pointer-events: auto; }
+        .btn-group { display: flex; gap: 20px; align-items: flex-end; pointer-events: auto; }
         .touch-btn {
             width: 80px; height: 80px;
-            background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+            background: linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05));
             border: 2px solid rgba(255,255,255,0.3); border-radius: 50%;
             display: flex; justify-content: center; align-items: center;
-            color: white; font-size: 30px; font-weight: bold; backdrop-filter: blur(4px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;
+            color: white; font-size: 32px; font-weight: bold; backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4); cursor: pointer; user-select: none;
         }
         .touch-btn:active, .touch-btn.active { background: rgba(255,215,0,0.3); border-color: #FFD700; transform: scale(0.95); }
         
         #mode-toggle {
-            position: absolute; bottom: 130px; right: 20px;
-            width: 64px; height: 64px; border-radius: 12px;
-            background: rgba(0,0,0,0.7); font-size: 30px;
-            pointer-events: auto; border: 3px solid #fff;
+            position: absolute; bottom: 130px; right: 25px;
+            width: 60px; height: 60px; border-radius: 12px;
+            background: rgba(0,0,0,0.7); font-size: 28px;
+            pointer-events: auto; border: 2px solid #fff;
             display: flex; justify-content: center; align-items: center;
             box-shadow: 0 4px 8px rgba(0,0,0,0.5); cursor: pointer;
         }
@@ -89,34 +102,45 @@
             backdrop-filter: blur(5px);
         }
         .panel {
-            background: #222; padding: 30px; border-radius: 20px;
-            border: 4px solid #4CAF50; text-align: center; width: 90%; max-width: 450px;
-            color: white; box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+            background: #222; padding: 30px; border-radius: 16px;
+            border: 3px solid #4CAF50; text-align: center; width: 90%; max-width: 500px;
+            color: white; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         }
         .big-btn {
             width: 100%; padding: 15px; font-size: 20px; font-weight: bold;
             background: linear-gradient(to bottom, #4CAF50, #2E7D32);
-            color: white; border: none; border-radius: 10px; margin-top: 15px;
+            color: white; border: none; border-radius: 8px; margin-top: 15px;
             box-shadow: 0 5px 0 #1B5E20; text-shadow: 1px 1px 0 rgba(0,0,0,0.5); cursor: pointer;
         }
         .big-btn:active { transform: translateY(5px); box-shadow: none; }
-        .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        
+        .action-row { display: flex; gap: 10px; margin-top: 15px; }
+        .sub-btn {
+            flex: 1; padding: 12px; font-size: 16px; font-weight: bold;
+            background: #555; color: white; border: 1px solid #777; border-radius: 8px; cursor: pointer;
+        }
+        .sub-btn:hover { background: #666; }
+
+        .shop-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 20px 0; }
         .shop-btn {
             background: #444; border: 1px solid #666; color: white;
-            padding: 12px; border-radius: 8px; font-size: 14px; transition: transform 0.1s; cursor: pointer;
+            padding: 10px; border-radius: 8px; font-size: 13px; transition: transform 0.1s; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
         }
         .shop-btn:active { transform: scale(0.95); background: #555; }
+        .shop-btn small { font-size: 11px; color: #aaa; }
 
+        /* 알림 메시지 */
         .toast {
-            position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%);
+            position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%);
             color: #FFD700; font-size: 24px; font-weight: bold;
             text-shadow: 2px 2px 0 #000, 0 0 10px #FFD700;
             opacity: 0; transition: opacity 0.5s; pointer-events: none; z-index: 200;
         }
         .sound-toggle {
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            color: #ccc; font-size: 12px; background: rgba(0,0,0,0.6);
-            padding: 6px 12px; border-radius: 20px; pointer-events: auto; border: 1px solid #555; cursor: pointer;
+            color: #bbb; font-size: 12px; background: rgba(0,0,0,0.6);
+            padding: 6px 14px; border-radius: 20px; pointer-events: auto; border: 1px solid #555; cursor: pointer; z-index: 100;
         }
     </style>
 </head>
@@ -124,78 +148,115 @@
 
     <canvas id="gameCanvas"></canvas>
 
+    <!-- UI 레이어 -->
     <div id="ui-layer">
         <div id="hud">
             <div class="stat-card">
-                LV: <span id="ui-level">1</span> <span style="color:#FFD700; margin-left:15px;">GOLD: $<span id="ui-gold">0</span></span>
+                <div class="row">
+                    <span>LV: <span id="ui-lvl">1</span></span>
+                    <span class="gold-txt">$<span id="ui-gold">0</span></span>
+                </div>
             </div>
             <div class="stat-card">
-                <div style="display:flex; justify-content:space-between; font-size:14px; color:#ff5252;">
-                    <span>HP</span> <span><span id="ui-hp">100</span> / <span id="ui-max">100</span></span>
+                <div class="row" style="font-size:12px; color:#ff5252;">
+                    <span>HEALTH</span>
+                    <span><span id="ui-hp">100</span> / <span id="ui-max">100</span></span>
                 </div>
-                <div class="hp-bar-bg"><div id="hp-bar" class="hp-bar-fill"></div></div>
-                <div id="breath-box" class="hp-bar-bg" style="display:none; border-color:#00B0FF; height:8px;"><div id="breath-bar" class="hp-bar-fill" style="background:#00B0FF;"></div></div>
+                <div class="bar-bg"><div id="hp-bar" class="hp-fill"></div></div>
+                
+                <div id="breath-con">
+                    <div class="row" style="font-size:11px; color:#40C4FF; margin-top:2px;">
+                        <span>OXYGEN</span> <span id="ui-air-txt">100%</span>
+                    </div>
+                    <div class="bar-bg" style="height:6px; border-color:#0288D1;"><div id="air-bar" class="air-fill"></div></div>
+                </div>
             </div>
+        </div>
+
+        <div id="pc-help">
+            [WASD / Arrow] Move & Jump<br>
+            [Space] Jump / Double Jump<br>
+            [L-Click] Attack / Mine<br>
+            [R-Click] Place Block<br>
+            [1-9] Select Item
         </div>
 
         <div id="boss-hud">
-            <div class="boss-title">BOSS</div>
+            <div class="boss-name">BOSS</div>
             <div class="boss-bar-bg"><div id="boss-fill" class="boss-bar-fill"></div></div>
         </div>
-        <div id="toast" class="toast">저장됨!</div>
+        <div id="toast" class="toast">Saved!</div>
     </div>
 
+    <!-- 인벤토리 -->
     <div id="inventory-bar"></div>
 
+    <!-- 모바일 컨트롤 (PC에선 자동 숨김) -->
     <div id="controls">
         <div class="btn-group">
             <div id="btn-left" class="touch-btn">◀</div>
             <div id="btn-right" class="touch-btn">▶</div>
         </div>
         <div class="btn-group">
-            <div id="btn-jump" class="touch-btn" style="background:rgba(0,255,0,0.15); border-color:#81C784;">⬆</div>
+            <div id="btn-jump" class="touch-btn" style="background:rgba(76, 175, 80, 0.3); border-color:#81C784;">⬆</div>
         </div>
     </div>
-    
     <div id="mode-toggle" class="mode-mine">⛏️</div>
-    <div class="sound-toggle" onclick="toggleSound()">🔊 소리 켜짐</div>
 
+    <div class="sound-toggle" onclick="toggleSound()">🔊 Sound ON</div>
+
+    <!-- 오버레이 화면 -->
     <div id="overlay">
+        <!-- 시작 화면 -->
         <div id="start-menu" class="panel">
-            <h1 style="color:#FFD700; margin-top:0; text-shadow:2px 2px 0 #000;">VOXEL QUEST</h1>
-            <p style="color:#aaa;">True Complete Edition</p>
-            <button class="big-btn" onclick="startGame(true)">새 게임 시작</button>
-            <button id="btn-continue" class="big-btn" style="background:linear-gradient(to bottom,#2196F3,#1565C0); box-shadow:0 5px 0 #0D47A1; display:none;" onclick="loadGame()">이어하기</button>
-        </div>
-
-        <div id="shop-menu" class="panel" style="display:none;">
-            <h2 style="color:#FFD700;">스테이지 완료!</h2>
-            <p>보유 골드: <span id="shop-gold" style="color:#FFD700">0</span></p>
-            <div class="shop-grid">
-                <div class="shop-btn" onclick="buyItem('heal')">❤️ 회복 (50G)</div>
-                <div class="shop-btn" onclick="buyItem('damage')">⚔️ 공격력 (200G)</div>
-                <div class="shop-btn" onclick="buyItem('speed')">👟 이속 (150G)</div>
-                <div class="shop-btn" onclick="buyItem('maxhp')">🛡️ 체력 (300G)</div>
-                <div class="shop-btn" onclick="buyItem('wand')" id="btn-wand">🔥 완드 (500G)</div>
+            <h1 style="color:#FFD700; margin:0 0 10px 0; text-shadow:2px 2px 0 #000; font-size:32px;">VOXEL QUEST</h1>
+            <p style="color:#aaa; font-size:14px; margin-bottom:20px;">Final Fixed Edition</p>
+            <button class="big-btn" onclick="window.Game.start(true)">새 게임 시작 (NEW GAME)</button>
+            <div class="action-row">
+                <button class="sub-btn" style="background:#2196F3;" onclick="window.Game.loadFromCache()">이어하기 (CACHE)</button>
+                <button class="sub-btn" style="background:#FF9800;" onclick="window.Game.loadFromFile()">파일 불러오기 (LOAD)</button>
             </div>
-            <button class="big-btn" onclick="nextLevel()">다음 레벨 >></button>
         </div>
 
+        <!-- 상점/클리어 화면 -->
+        <div id="shop-menu" class="panel" style="display:none;">
+            <h2 style="color:#FFD700; margin-top:0;">STAGE CLEAR!</h2>
+            <p>보유 골드: <span id="shop-gold" style="color:#FFD700; font-size:18px;">0</span></p>
+            <div class="shop-grid">
+                <div class="shop-btn" onclick="window.Game.buy('heal')"><span>❤️ 회복</span><small>50G</small></div>
+                <div class="shop-btn" onclick="window.Game.buy('damage')"><span>⚔️ 공격력</span><small>200G</small></div>
+                <div class="shop-btn" onclick="window.Game.buy('speed')"><span>👟 이속</span><small>150G</small></div>
+                <div class="shop-btn" onclick="window.Game.buy('maxhp')"><span>🛡️ 체력</span><small>300G</small></div>
+                
+                <div class="shop-btn" onclick="window.Game.buy('bow')" id="btn-bow"><span>🏹 활</span><small>400G</small></div>
+                <div class="shop-btn" onclick="window.Game.buy('wand')" id="btn-wand"><span>🔥 완드</span><small>600G</small></div>
+                <div class="shop-btn" onclick="window.Game.buy('hammer')" id="btn-hammer"><span>🔨 해머</span><small>800G</small></div>
+            </div>
+            <button class="big-btn" onclick="window.Game.nextLevel()">다음 레벨 (NEXT LEVEL)</button>
+            <button class="sub-btn" style="width:100%; margin-top:10px; background:#555;" onclick="window.Game.saveToFile()">💾 파일로 저장 (SAVE TO FILE)</button>
+        </div>
+
+        <!-- 사망 화면 -->
         <div id="death-menu" class="panel" style="display:none; border-color:#d32f2f;">
-            <h1 style="color:#d32f2f; text-shadow:2px 2px 0 #000;">GAME OVER</h1>
-            <p>레벨 <span id="death-level">1</span> 실패</p>
-            <button class="big-btn" style="background:linear-gradient(to bottom,#f44336,#c62828); box-shadow:0 5px 0 #b71c1c;" onclick="restartGame()">다시 도전</button>
+            <h1 style="color:#d32f2f; text-shadow:2px 2px 0 #000;">YOU DIED</h1>
+            <p>레벨 <span id="death-level">1</span>에서 사망</p>
+            <button class="big-btn" style="background:linear-gradient(to bottom,#f44336,#c62828); box-shadow:0 5px 0 #b71c1c;" onclick="window.Game.restart()">다시 시작 (TRY AGAIN)</button>
         </div>
     </div>
+
+    <!-- 파일 입력 (숨김) -->
+    <input type="file" id="file-input" style="display:none;" accept=".json" onchange="window.Game.handleFile(this)">
 
 <script>
 (function() { 
+    // --- 기기 감지 ---
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 800;
 
     // --- 오디오 시스템 ---
     const AudioSys = {
         ctx: null, muted: false,
         init() { if(!this.ctx) this.ctx=new(window.AudioContext||window.webkitAudioContext)(); if(this.ctx.state==='suspended')this.ctx.resume(); },
-        playTone(freq, type, dur, vol=0.1) {
+        play(freq, type, dur, vol=0.1) {
             if(this.muted||!this.ctx)return;
             const o=this.ctx.createOscillator(), g=this.ctx.createGain();
             o.type=type; o.frequency.value=freq; g.gain.setValueAtTime(vol,this.ctx.currentTime);
@@ -211,29 +272,42 @@
             s.connect(g); g.connect(this.ctx.destination); s.start();
         }
     };
-    function toggleSound(){ AudioSys.muted=!AudioSys.muted; document.querySelector('.sound-toggle').innerText=AudioSys.muted?"🔇 소리 꺼짐":"🔊 소리 켜짐"; }
+    window.toggleSound = function(){ AudioSys.muted=!AudioSys.muted; document.querySelector('.sound-toggle').innerText=AudioSys.muted?"🔇 Sound OFF":"🔊 Sound ON"; };
+    
     const SFX = {
-        jump:()=>AudioSys.playTone(300,'square',0.1,0.05), coin:()=>AudioSys.playTone(1200,'sine',0.15,0.1),
-        hit:()=>AudioSys.playTone(100,'sawtooth',0.1,0.1), place:()=>AudioSys.playTone(400,'sine',0.05,0.05), exp:()=>AudioSys.noise(0.4)
+        jump:()=>AudioSys.play(300,'square',0.1,0.05), coin:()=>AudioSys.play(1200,'sine',0.15,0.1),
+        hit:()=>AudioSys.play(100,'sawtooth',0.1,0.1), swing:()=>AudioSys.play(200,'triangle',0.1,0.05),
+        place:()=>AudioSys.play(400,'sine',0.05,0.05), exp:()=>AudioSys.noise(0.4),
+        crit:()=>AudioSys.play(600,'square',0.2,0.1), break:()=>AudioSys.noise(0.1),
+        shoot:()=>AudioSys.play(800,'triangle',0.1,0.05), spin:()=>AudioSys.play(500,'sine',0.2,0.1)
     };
 
     // --- 게임 상수 ---
-    const TILE=40, DEPTH=10, GRAVITY=0.5, RANGE=5*TILE;
-    const BLOCKS={AIR:0,DIRT:1,GRASS:2,STONE:3,WOOD:4,LEAVES:5,BRICK:6,SAND:7,SNOW:8,COAL:9,GOLD:10,DIAMOND:11,TNT:12,GLASS:13,PLANK:14,SPIKE:15,GOAL:99,WATER:20,LAVA:21};
-    const ITEMS={SWORD:100,WAND:101};
+    const TILE=40, DEPTH=12, GRAVITY=0.5, RANGE=5*TILE;
+    const BLOCKS={AIR:0,DIRT:1,GRASS:2,STONE:3,WOOD:4,LEAVES:5,BRICK:6,SAND:7,SNOW:8,COAL:9,GOLD:10,DIAMOND:11,TNT:12,GLASS:13,PLANK:14,SPIKE:15,GOAL:99,WATER:20,LAVA:21, ICE:22};
+    const ITEMS={SWORD:100,WAND:101,BOW:102,HAMMER:103};
     
-    // 블록 정의
+    // 블록 정의 (특성: speed, jump, bg, ice)
     const DEFS={
         [BLOCKS.DIRT]:{c:'#795548'}, [BLOCKS.GRASS]:{c:'#795548',top:'#4caf50'}, [BLOCKS.STONE]:{c:'#9E9E9E'},
-        [BLOCKS.WOOD]:{c:'#5D4037',side:'#4E342E'}, [BLOCKS.LEAVES]:{c:'#388E3C',a:0.9}, [BLOCKS.BRICK]:{c:'#D32F2F'},
-        [BLOCKS.SAND]:{c:'#FBC02D'}, [BLOCKS.SNOW]:{c:'#E0F7FA',top:'#ffffff'},
+        [BLOCKS.WOOD]:{c:'#5D4037',side:'#3E2723',bg:true}, [BLOCKS.LEAVES]:{c:'#2E7D32',a:0.9,bg:true}, 
+        [BLOCKS.BRICK]:{c:'#D32F2F', speed:1.3}, 
+        [BLOCKS.SAND]:{c:'#FBC02D', speed:0.6},
+        [BLOCKS.SNOW]:{c:'#E0F7FA',top:'#fff'},
         [BLOCKS.COAL]:{c:'#9E9E9E',dot:'#212121',v:5}, [BLOCKS.GOLD]:{c:'#9E9E9E',dot:'#FFEB3B',v:15},
         [BLOCKS.DIAMOND]:{c:'#9E9E9E',dot:'#00BCD4',v:50}, [BLOCKS.TNT]:{c:'#E53935',txt:'TNT'},
-        [BLOCKS.GLASS]:{c:'#81D4FA',a:0.4}, [BLOCKS.PLANK]:{c:'#8D6E63'}, [BLOCKS.SPIKE]:{c:'#BDBDBD',s:true},
-        [BLOCKS.WATER]:{c:'#29B6F6',a:0.5,f:true}, [BLOCKS.LAVA]:{c:'#FF5722',a:0.8,f:true}, [BLOCKS.GOAL]:{c:'#6a1b9a',dot:'#FFD700'},
-        [ITEMS.SWORD]:{i:'🗡️',tool:true,c:'#00BCD4'}, [ITEMS.WAND]:{i:'🔥',tool:true,c:'#FF5722'}
+        [BLOCKS.GLASS]:{c:'#81D4FA',a:0.3}, 
+        [BLOCKS.PLANK]:{c:'#8D6E63', jump:2.0},
+        [BLOCKS.SPIKE]:{c:'#BDBDBD',s:true},
+        [BLOCKS.WATER]:{c:'#29B6F6',a:0.5,f:true}, 
+        [BLOCKS.LAVA]:{c:'#FF5722',a:0.8,f:true,l:true},
+        [BLOCKS.ICE]:{c:'#B3E5FC',a:0.6, ice:true, speed:1.2, melt:true},
+        [BLOCKS.GOAL]:{c:'#7B1FA2',dot:'#FFD700'},
+        [ITEMS.SWORD]:{i:'🗡️',tool:true,c:'#00BCD4'}, [ITEMS.WAND]:{i:'🔥',tool:true,c:'#FF5722'},
+        [ITEMS.BOW]:{i:'🏹',tool:true,c:'#8D6E63'}, [ITEMS.HAMMER]:{i:'🔨',tool:true,c:'#607D8B'}
     };
     
+    // 몬스터
     const MOBS = {
         'SLIME': {c:'#76ff03',w:30,h:20,sp:2,hp:30,rw:10},
         'ZOMBIE': {c:'#2e7d32',w:28,h:38,sp:1.5,hp:50,rw:20},
@@ -243,113 +317,136 @@
         'BOSS_VOID': {c:'#212121',w:100,h:120,sp:2,hp:1200,rw:1000,boss:true,name:"VOID LORD"}
     };
 
-    // --- 변수 ---
+    // --- 전역 변수 ---
     let cvs, ctx, W, H, state="MENU", lv=1, ww=100, wh=50;
     let world=[], mobs=[], projs=[], tnts=[], parts=[], wParts=[], floatTexts=[];
     let weather="NONE", time=0, shake=0, flash=0, boss=null, cam={x:0,y:0};
-    let p={x:0,y:0,w:28,h:38,vx:0,vy:0,g:false,dir:1,hp:100,max:100,gold:0,sp:6,dmg:15,wand:false,air:100,inv:0};
-    let inv=[ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA], slot=0;
+    let p={x:0,y:0,w:28,h:38,vx:0,vy:0,g:false,dir:1,hp:100,max:100,gold:0,sp:6,dmg:15,wand:false,bow:false,hammer:false,air:100,inv:0,atkAnim:0,blink:0,jumpCount:0,spin:0};
+    let inv=[ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA, BLOCKS.BRICK], slot=0;
     let keys={l:false,r:false,u:false}, mode="MINE";
     let mouse = {x:0, y:0, active:false};
+    let weatherTimer = 0;
 
-    window.onload = () => {
+    // --- 초기화 함수 ---
+    function init() {
         cvs=document.getElementById('gameCanvas'); ctx=cvs.getContext('2d',{alpha:false});
         resize(); window.addEventListener('resize',resize);
-        if(localStorage.getItem('vq_true_save')) document.getElementById('btn-continue').style.display='block';
+        if(localStorage.getItem('vq_save_v4')) document.getElementById('btn-continue').style.display='block';
+        
+        if (!isMobile) {
+            document.getElementById('controls').style.display = 'none';
+            document.getElementById('mode-toggle').style.display = 'none';
+            document.getElementById('pc-help').style.display = 'block';
+        }
         setupCtrl(); loop();
-    };
+    }
     function resize(){ W=cvs.width=window.innerWidth; H=cvs.height=window.innerHeight; }
 
     function setupCtrl() {
-        // [수정] 마우스와 터치 이벤트를 통합 처리하여 PC에서도 이동 가능하도록 개선
         const bd=(id,k)=>{
             let e=document.getElementById(id);
             const down = (ev) => { if(ev.cancelable) ev.preventDefault(); e.style.background='rgba(255,215,0,0.4)'; keys[k]=true; };
             const up = (ev) => { if(ev.cancelable) ev.preventDefault(); e.style.background=''; keys[k]=false; };
-            
             e.addEventListener('touchstart', down); e.addEventListener('touchend', up);
             e.addEventListener('mousedown', down); e.addEventListener('mouseup', up); e.addEventListener('mouseleave', up);
         };
         bd('btn-left','l'); bd('btn-right','r'); bd('btn-jump','u');
 
-        // [수정] 모드 전환 버튼도 마우스 지원
         let mb=document.getElementById('mode-toggle');
         const toggleMode = (e) => {
             if(e.cancelable) e.preventDefault(); 
-            mode=mode==="MINE"?"BUILD":"MINE"; 
-            mb.innerText=mode==="MINE"?"⛏️":"🧱"; 
-            mb.className=`mode-${mode.toLowerCase()}`;
+            mode=mode==="MINE"?"BUILD":"MINE"; mb.innerText=mode==="MINE"?"⛏️":"🧱"; mb.className=`mode-${mode.toLowerCase()}`;
         };
-        mb.addEventListener('touchstart', toggleMode);
-        mb.addEventListener('mousedown', toggleMode);
+        mb.addEventListener('touchstart', toggleMode); mb.addEventListener('mousedown', toggleMode);
         
-        // [수정] 캔버스 상호작용 (마우스+터치 통합)
         const inputHandler = (e) => {
             if(state!=="PLAY")return;
-            
-            // 좌표 추출
-            let clientX, clientY;
-            if(e.touches && e.touches.length > 0) {
-                clientX = e.touches[0].clientX; clientY = e.touches[0].clientY;
-            } else {
-                clientX = e.clientX; clientY = e.clientY;
-            }
-            
+            let cx, cy;
+            if(e.touches && e.touches.length > 0) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; } 
+            else { cx = e.clientX; cy = e.clientY; }
             let r=cvs.getBoundingClientRect();
-            mouse.x = clientX - r.left; mouse.y = clientY - r.top; mouse.active = true;
+            mouse.x = cx - r.left; mouse.y = cy - r.top; mouse.active = true;
             
-            // 클릭/터치 시작 시 동작
             if(e.type === 'touchstart' || e.type === 'mousedown') {
-                if(e.cancelable) e.preventDefault(); // 드래그 방지
-                let it=inv[slot];
-                if(it===ITEMS.SWORD||it===ITEMS.WAND) interact(0, mouse.x, mouse.y);
-                else interact(mode==="MINE"?0:2, mouse.x, mouse.y);
+                if(e.cancelable) e.preventDefault();
+                let it=inv[slot], btn=0;
+                if (e.type === 'mousedown') btn = e.button; 
+                else { if(it===ITEMS.SWORD||it===ITEMS.WAND||it===ITEMS.BOW||it===ITEMS.HAMMER) btn=0; else btn=(mode==="MINE")?0:2; }
+                if(it>=100 && it<=103) interact(0, mouse.x, mouse.y);
+                else interact(btn, mouse.x, mouse.y);
             }
         };
 
         cvs.addEventListener('touchstart',inputHandler,{passive:false}); 
         cvs.addEventListener('touchmove',inputHandler,{passive:false});
         cvs.addEventListener('touchend',()=>{mouse.active=false;});
-        
-        // PC 마우스 지원 추가
         cvs.addEventListener('mousedown', inputHandler);
         cvs.addEventListener('mousemove', (e) => {
-            let r=cvs.getBoundingClientRect();
-            mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.active = true;
-            if(e.buttons === 1) inputHandler(e); // 드래그 시 계속 동작
+            let r=cvs.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.active = true;
+            if(e.buttons === 1 || e.buttons === 2) inputHandler(e);
         });
         cvs.addEventListener('mouseup', ()=>{mouse.active=false;});
+        cvs.addEventListener('contextmenu', e => e.preventDefault());
 
-        // [수정] 키보드 지원 추가 (PC 테스트용)
         window.addEventListener('keydown', e => {
-            if(e.code==='ArrowLeft') keys.l=true;
-            if(e.code==='ArrowRight') keys.r=true;
-            if(e.code==='Space'||e.code==='ArrowUp') keys.u=true;
+            if(e.code==='ArrowLeft'||e.code==='KeyA') keys.l=true;
+            if(e.code==='ArrowRight'||e.code==='KeyD') keys.r=true;
+            if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW') keys.u=true;
+            if(e.key >= '1' && e.key <= '9') { let idx=parseInt(e.key)-1; if(idx<inv.length){slot=idx;updInv();} }
         });
         window.addEventListener('keyup', e => {
-            if(e.code==='ArrowLeft') keys.l=false;
-            if(e.code==='ArrowRight') keys.r=false;
-            if(e.code==='Space'||e.code==='ArrowUp') keys.u=false;
+            if(e.code==='ArrowLeft'||e.code==='KeyA') keys.l=false;
+            if(e.code==='ArrowRight'||e.code==='KeyD') keys.r=false;
+            if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW') keys.u=false;
         });
     }
 
-    function startGame(rst) {
+    function start(rst) {
         AudioSys.init();
         if(rst){ 
             lv=1; 
-            p={x:0,y:0,w:28,h:38,vx:0,vy:0,g:false,dir:1,hp:100,max:100,gold:0,sp:6,dmg:15,wand:false,air:100,inv:0}; 
-            inv=[ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA]; 
+            p={x:0,y:0,w:28,h:38,vx:0,vy:0,g:false,dir:1,hp:100,max:100,gold:0,sp:6,dmg:15,wand:false,bow:false,hammer:false,air:100,inv:0,atkAnim:0,blink:0,jumpCount:0,spin:0}; 
+            inv=[ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA, BLOCKS.BRICK]; 
         }
         genLevel(lv); state="PLAY"; document.getElementById('overlay').style.display='none'; updInv(); updHud();
     }
-    function loadGame() {
-        try{ let d=JSON.parse(localStorage.getItem('vq_true_save')); lv=d.l; p.hp=d.hp; p.max=d.mx; p.gold=d.g; p.sp=d.s; p.dmg=d.d; p.wand=d.w; inv=d.i; startGame(false); toast("로드 완료!"); }
-        catch(e){startGame(true);}
+    
+    function loadFromCache() {
+        try{ let d=JSON.parse(localStorage.getItem('vq_save_v4')); if(!d)throw 0; applySave(d); }
+        catch(e){ alert("저장된 데이터가 없습니다."); }
+    }
+
+    function loadFromFile() { document.getElementById('file-input').click(); }
+
+    function handleFile(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try { const d = JSON.parse(e.target.result); applySave(d); } 
+            catch(err) { alert("파일 형식 오류!"); }
+        };
+        reader.readAsText(file);
+    }
+
+    function applySave(d) {
+        lv=d.l; p.hp=d.hp; p.max=d.mx; p.gold=d.g; p.sp=d.s; p.dmg=d.d; p.wand=d.w; p.bow=d.b; p.hammer=d.hm; inv=d.i;
+        start(false); toast("LOADED!");
+    }
+
+    function saveToFile() {
+        const data = JSON.stringify({l:lv,hp:p.hp,mx:p.max,g:p.gold,s:p.sp,d:p.dmg,w:p.wand,b:p.bow,hm:p.hammer,i:inv});
+        const blob = new Blob([data], {type: 'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `voxel_quest_lv${lv}.json`;
+        a.click();
     }
 
     function genLevel(l) {
         world=[]; mobs=[]; projs=[]; tnts=[]; parts=[]; floatTexts=[]; boss=null; document.getElementById('boss-hud').style.display='none';
-        weather=Math.random()<0.2?"RAIN":(l>2&&Math.random()<0.4?"SNOW":"NONE");
+        
+        let r=Math.random(); weather=r<0.2?"RAIN":(l>2&&r<0.4?"SNOW":"NONE");
         ww=150+(l*20); wh=60;
         let hts=[], depths=[];
         
@@ -372,12 +469,14 @@
                     let gap = (!isBoss && x<ww-20 && Math.sin(x*0.8)*Math.cos(x*0.4)>0.9-(l*0.02));
                     if(gap && y>wh-5) b=Math.random()<0.5?BLOCKS.SPIKE:BLOCKS.LAVA;
                     else if(!gap && y>=h) {
-                        if(y===h)b=BLOCKS.GRASS;
+                        if(y===h) { b=weather==="SNOW"?BLOCKS.SNOW:BLOCKS.GRASS; }
                         else if(y<=h+d)b=BLOCKS.DIRT;
                         else {
                             b=BLOCKS.STONE;
                             let r=Math.random();
-                            if(r<0.05)b=BLOCKS.COAL; else if(r<0.03)b=BLOCKS.GOLD; else if(r<0.02)b=BLOCKS.DIAMOND;
+                            if(r<0.015) b=BLOCKS.DIAMOND;
+                            else if(r<0.04) b=BLOCKS.GOLD;
+                            else if(r<0.12) b=BLOCKS.COAL;
                         }
                     }
                 }
@@ -388,23 +487,34 @@
             world.push(row);
         }
 
-        let numPonds = Math.floor(Math.random()*4);
-        for(let i=0; i<numPonds; i++) {
-            let pw = 7+Math.floor(Math.random()*6), sx = 25+Math.floor(Math.random()*(ww-50));
-            let cy = hts[sx+Math.floor(pw/2)];
-            for(let x=sx; x<sx+pw; x++) {
-                if(x>=ww-10)continue;
-                let xd=x-(sx+pw/2), my=Math.floor(cy+(3+Math.random()*3)*Math.sqrt(1-(xd*xd)/((pw/2)**2)));
-                for(let y=cy; y<=my; y++) if(world[y] && world[y][x]!==BLOCKS.AIR && world[y][x]!==BLOCKS.GOAL) world[y][x]=BLOCKS.WATER;
+        for(let x=20; x<ww-20; x++) {
+            if(Math.random()<0.03 && world[hts[x]][x]===BLOCKS.GRASS) {
+                let h = hts[x];
+                for(let i=1; i<=4; i++) if(h-i>0) world[h-i][x] = BLOCKS.WOOD;
+                for(let ly=h-6; ly<=h-4; ly++) for(let lx=x-2; lx<=x+2; lx++) {
+                    if(lx>=0 && lx<ww && ly>=0 && world[ly] && world[ly][lx]===BLOCKS.AIR && Math.random()<0.8) world[ly][lx] = BLOCKS.LEAVES;
+                }
             }
         }
 
-        while(mobs.length < 3) {
+        let numPonds = Math.floor(Math.random()*4)+2;
+        for(let i=0; i<numPonds; i++) {
+            let pw=10+Math.floor(Math.random()*8), sx=25+Math.floor(Math.random()*(ww-50));
+            let cy=hts[sx+Math.floor(pw/2)];
+            for(let x=sx; x<sx+pw; x++) {
+                if(x>=ww-10)continue;
+                let xd=x-(sx+pw/2), my=Math.floor(cy+(3+Math.random()*3)*Math.sqrt(1-(xd*xd)/((pw/2)**2)));
+                for(let y=cy; y<=my; y++) if(world[y] && world[y][x]!==BLOCKS.AIR && world[y][x]!==BLOCKS.GOAL) {
+                    world[y][x] = (weather==="SNOW" && y===cy) ? BLOCKS.ICE : BLOCKS.WATER;
+                }
+            }
+        }
+
+        while(mobs.length < 4) {
             let x = 20 + Math.floor(Math.random()*(ww-40));
             let h = hts[x];
             if(world[h][x]!==BLOCKS.AIR) spawnMob(x*TILE, (h-2)*TILE, Math.random()<0.6?'SLIME':'ZOMBIE');
         }
-        
         for(let x=20; x<ww-20; x++) {
             if(Math.random() < Math.min(0.05, 0.02+l*0.005)) {
                 let h=hts[x];
@@ -412,17 +522,14 @@
                 if(l>2 && Math.random()<0.3) spawnMob(x*TILE, (h-10)*TILE, 'BAT');
             }
         }
-        if(isBoss) {
-            let t='BOSS_SLIME'; if(l%9===0)t='BOSS_VOID'; else if(l%6===0)t='BOSS_ZOMBIE';
-            spawnMob((ww-30)*TILE, 0, t);
-        }
+        if(isBoss) spawnMob((ww-30)*TILE, 0, (l%9===0)?'BOSS_VOID':(l%6===0?'BOSS_ZOMBIE':'BOSS_SLIME'));
 
         p.x=5*TILE; p.y=(Math.floor(wh/2)-5)*TILE;
         cam.x=p.x-W/2; cam.y=p.y-H/2; updHud();
     }
 
     function spawnMob(x,y,k) {
-        let s=MOBS[k], hp=s.hp+lv*10;
+        let s=MOBS[k], hp=s.hp+lv*20;
         let m={x,y,vx:0,vy:0,...s,max:hp,hp:hp,hurt:0,type:k};
         mobs.push(m); if(s.boss) boss=m;
     }
@@ -431,27 +538,71 @@
 
     function update() {
         time++; if(shake>0)shake*=0.9; if(flash>0)flash-=0.05; if(p.inv>0)p.inv--;
-        if(weather!=="NONE" && Math.random()<0.3) wParts.push({x:Math.random()*W,y:-10,vx:weather==="SNOW"?Math.random()-0.5:0,vy:weather==="RAIN"?15:2,t:weather});
+        if(p.atkAnim>0) p.atkAnim--;
+        if(p.spin>0) p.spin--;
+        if(p.blink>0) p.blink--; else if(Math.random()<0.01) p.blink=10;
 
-        let bf = getB(Math.floor((p.x+p.w/2)/TILE), Math.floor((p.y+p.h/2)/TILE));
-        let water = bf===BLOCKS.WATER, lava = bf===BLOCKS.LAVA;
+        if(weather!=="NONE" && Math.random()<0.4) wParts.push({x:Math.random()*W,y:-10,vx:weather==="SNOW"?Math.random()-0.5:0,vy:weather==="RAIN"?15:2,t:weather});
         
-        let sp = p.sp * (water?0.5:1);
-        if(keys.l){p.vx=-sp;p.dir=-1;} else if(keys.r){p.vx=sp;p.dir=1;} else p.vx=0;
+        if(Math.random()<0.05) { 
+            let rx=Math.floor(cam.x/TILE + Math.random()*(W/TILE)), ry=Math.floor(cam.y/TILE + Math.random()*(H/TILE));
+            if(getB(rx,ry)===BLOCKS.ICE) setB(rx,ry,BLOCKS.WATER);
+        }
+
+        let footX = Math.floor((p.x+p.w/2)/TILE);
+        let footY = Math.floor((p.y+p.h+1)/TILE); 
+        let groundB = getB(footX, footY); 
+        
+        let centerB = getB(Math.floor((p.x+p.w/2)/TILE), Math.floor((p.y+p.h/2)/TILE));
+        let water = centerB===BLOCKS.WATER, lava = centerB===BLOCKS.LAVA;
+        
+        let blockDef = DEFS[groundB];
+        let speedMod = (p.g && blockDef && blockDef.speed) ? blockDef.speed : 1.0;
+        
+        if(water) speedMod = 0.5;
+        if(lava) speedMod = 0.3; 
+
+        let targetVx = 0;
+        if(keys.l){ targetVx = -p.sp * speedMod; p.dir=-1; }
+        else if(keys.r){ targetVx = p.sp * speedMod; p.dir=1; }
+        
+        if(blockDef && blockDef.ice) p.vx += (targetVx - p.vx) * 0.05; 
+        else p.vx = targetVx;
+
         if(keys.u){
             if(water){
                 let head = getB(Math.floor((p.x+p.w/2)/TILE), Math.floor(p.y/TILE)-1);
-                if(head===BLOCKS.AIR) p.vy=-11*0.5; else p.vy=-3;
+                if(head===BLOCKS.AIR) p.vy=-11*0.6; else p.vy=-3;
                 SFX.jump();
-            } else if(p.g){ p.vy=-11; p.g=false; SFX.jump(); }
+            } else if(p.g){ 
+                let jumpMod = (blockDef && blockDef.jump) ? blockDef.jump : 1.0;
+                p.vy = -11 * jumpMod; 
+                p.g=false; p.jumpCount=1; SFX.jump(); 
+            } else if(p.jumpCount < 2) { 
+                p.vy = -10; 
+                p.jumpCount = 2; p.spin = 20; 
+                SFX.spin(); 
+                part(p.x, p.y+p.h, '#fff', 5);
+            }
             keys.u=false;
         }
 
         p.vy += water?0.1:GRAVITY;
-        if(water) { p.air-=0.5; if(p.air<=0 && time%30===0) hit(p,5); } else p.air=Math.min(100,p.air+1);
-        if(lava && time%30===0) hit(p,10);
+        
+        if(water) { 
+            p.air-=0.5; 
+            if(p.air<=0 && time%30===0) hit(p,5); 
+        } else {
+            p.air=Math.min(100,p.air+1);
+            if(time%360===0 && p.hp<p.max) p.hp++; 
+        }
+        if(lava) { if(time%60===0) hit(p, 10); } 
+        
+        updHud();
         
         p.x+=p.vx; col(p,'x'); p.y+=p.vy; p.g=false; col(p,'y');
+        if(p.g) p.jumpCount=0; 
+
         if(p.y>wh*TILE+200 || p.hp<=0) die();
         if(getB(Math.floor((p.x+p.w/2)/TILE), Math.floor((p.y+p.h/2)/TILE))===BLOCKS.GOAL) win();
 
@@ -469,12 +620,14 @@
         mobs.forEach((m,i)=>{
             let dist=p.x-m.x;
             if(Math.abs(dist)<600) {
-                if(m.fly) {
-                    m.vx = (dist>0?1:-1)*m.sp; m.vy = (p.y-m.y>0?1:-1)*1.5;
-                } else {
-                    let inWater = getB(Math.floor(m.x/TILE), Math.floor(m.y/TILE)) === BLOCKS.WATER;
-                    m.vx=(dist>0?1:-1)*m.sp*(inWater?0.5:1);
-                    m.vy+=GRAVITY;
+                if(m.fly) { m.vx = (dist>0?1:-1)*m.sp; m.vy = (p.y-m.y>0?1:-1)*1.5; } 
+                else {
+                    let mB = getB(Math.floor((m.x+m.w/2)/TILE), Math.floor((m.y+m.h/2)/TILE));
+                    let inW = mB === BLOCKS.WATER, inL = mB === BLOCKS.LAVA;
+                    let mSpd = m.sp * (inW?0.5:1) * (inL?0.3:1);
+                    if(inL && time%60===0) { m.hp-=20; showText(m.x, m.y, "-20", "#ff0000"); }
+
+                    m.vx=(dist>0?1:-1)*mSpd; m.vy+=GRAVITY;
                     if(isBlk(m)&&m.g) m.vy=-10;
                     if(m.boss && m.g && Math.random()<0.02) { m.vy=-12; shake=5; } 
                 }
@@ -483,7 +636,7 @@
             }
             if(m.hurt>0)m.hurt--;
             if(m.hp<=0) {
-                p.gold+=m.rw; SFX.coin(); showText(m.x, m.y, `+${m.rw}G`, '#FFD700'); part(m.x/TILE,m.y/TILE,m.c,10);
+                p.gold+=m.rw; SFX.coin(); showText(m.x, m.y, `+${m.rw}G`, '#FFD700'); part(m.x/TILE,m.y/TILE,m.c,15);
                 if(m===boss){boss=null;document.getElementById('boss-hud').style.display='none';shake=20;}
                 mobs.splice(i,1);
             }
@@ -493,16 +646,18 @@
             j.x+=j.vx; j.y+=j.vy; j.l--; j.vy+=0.2;
             let tx=Math.floor(j.x/TILE), ty=Math.floor(j.y/TILE);
             let b=getB(tx,ty);
-            if((b!==BLOCKS.AIR && !DEFS[b].f) || j.l<=0) { projs.splice(i,1); exp(tx,ty,1); return; }
+            if((b!==BLOCKS.AIR && !DEFS[b].f && !DEFS[b].bg) || j.l<=0) { projs.splice(i,1); exp(tx,ty,1); return; }
             for(let m of mobs) {
                 if(j.x>m.x && j.x<m.x+m.w && j.y>m.y && j.y<m.y+m.h) {
-                    m.hp-=30+p.dmg; m.hurt=10; showText(m.x, m.y, 30+p.dmg, '#fff'); projs.splice(i,1); exp(tx,ty,1.5); return;
+                    let dmg = p.dmg;
+                    if(Math.random()<0.2) { dmg*=2; SFX.crit(); showText(m.x, m.y-20, "CRITICAL!", '#FF0000'); }
+                    m.hp-=dmg; m.hurt=10; showText(m.x, m.y, dmg, '#fff'); projs.splice(i,1); exp(tx,ty,1.5); return;
                 }
             }
         });
 
         tnts.forEach((t,i)=>{t.tm--; if(t.tm<=0){exp(t.x,t.y,4);tnts.splice(i,1);}});
-        parts.forEach((pt,i)=>{pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.2; pt.l--; if(pt.l<=0)parts.splice(i,1);});
+        parts.forEach((pt,i)=>{pt.x+=pt.vx; pt.y+=pt.vy; pt.vy+=0.5; pt.l--; if(pt.l<=0)parts.splice(i,1);});
         wParts.forEach((wp,i)=>{wp.x+=(wp.vx-p.vx); wp.y+=wp.vy; if(wp.y>H)wParts.splice(i,1);});
         floatTexts.forEach((ft, i) => { ft.y -= 1; ft.l--; if(ft.l <= 0) floatTexts.splice(i, 1); });
     }
@@ -515,7 +670,7 @@
         let t=Math.floor(e.y/TILE), b=Math.floor((e.y+e.h-0.1)/TILE);
         for(let y=t;y<=b;y++)for(let x=l;x<=r;x++){
             let id=getB(x,y), d=DEFS[id];
-            if(id===BLOCKS.AIR||(d&&d.f))continue;
+            if(id===BLOCKS.AIR||(d&&(d.f||d.bg)))continue;
             if(id===BLOCKS.SPIKE&&e===p)hit(p,10);
             if(id!==BLOCKS.GOAL&&id!==BLOCKS.SPIKE&&(!d||!d.a)) {
                 if(ax==='x'){e.x=e.vx>0?x*TILE-e.w:(x+1)*TILE;e.vx=0;}
@@ -526,7 +681,7 @@
     }
     function isBlk(e) {
         let tx=Math.floor((e.x+(e.vx>0?e.w+5:-5))/TILE), ty=Math.floor((e.y+e.h-5)/TILE);
-        let b=getB(tx,ty); return b!==BLOCKS.AIR && !DEFS[b].f;
+        let b=getB(tx,ty); return b!==BLOCKS.AIR && !DEFS[b]?.f && !DEFS[b]?.bg;
     }
 
     function interact(btn, mx, my) {
@@ -534,17 +689,22 @@
         let tx=Math.floor(wx/TILE), ty=Math.floor(wy/TILE);
         let it=inv[slot];
 
-        if(btn===0 && (it===ITEMS.SWORD||it===ITEMS.WAND)) {
-            if(it===ITEMS.SWORD) {
-                let r={x:p.x+(p.dir===1?0:-60), y:p.y, w:80, h:50};
+        if(btn===0 && (it>=100 && it<=103)) {
+            p.atkAnim = 15; 
+            
+            if(it===ITEMS.SWORD || it===ITEMS.HAMMER) {
+                SFX.swing();
+                let reach = (it===ITEMS.HAMMER)?100:80;
+                let r={x:p.x+(p.dir===1?0:-reach+20), y:p.y, w:reach, h:50};
                 mobs.forEach(m=>{if(isRect(r,m)){
-                    m.hp-=p.dmg; m.hurt=10; m.vy=-5; 
-                    showText(m.x, m.y, p.dmg, '#fff'); SFX.hit();
+                    let dmg = p.dmg * (it===ITEMS.HAMMER?2:1);
+                    if(Math.random()<0.2) { dmg*=2; SFX.crit(); showText(m.x, m.y-20, "CRITICAL!", '#FF0000'); } 
+                    m.hp-=dmg; m.hurt=10; m.vy=-5; showText(m.x, m.y, dmg, '#fff'); SFX.hit();
+                    if(it===ITEMS.HAMMER) { shake=5; }
                 }});
-            } else {
+            } else { // BOW & WAND
                 let a=Math.atan2(wy-(p.y+20), wx-(p.x+14));
-                projs.push({x:p.x+14,y:p.y+20,vx:Math.cos(a)*10,vy:Math.sin(a)*10,l:60});
-                SFX.hit();
+                projs.push({x:p.x+14,y:p.y+20,vx:Math.cos(a)*12,vy:Math.sin(a)*12,l:60}); SFX.shoot();
             }
             return;
         }
@@ -555,24 +715,20 @@
             let b=getB(tx,ty);
             if(b===BLOCKS.TNT){setB(tx,ty,BLOCKS.AIR);tnts.push({x:tx,y:ty,tm:100});SFX.place();}
             else if(b!==BLOCKS.AIR && b!==BLOCKS.GOAL) {
-                if(p.gold>=1) {
-                    p.gold--; let d=DEFS[b]; if(d.v){p.gold+=d.v;SFX.coin();showText(wx,wy,`+${d.v}G`,'#FFD700');}
-                    part(tx,ty,d.c,5); setB(tx,ty,BLOCKS.AIR); SFX.place();
-                } else showText(wx,wy,"골드 부족!",'#ff5252');
+                let d=DEFS[b]; if(d.v){p.gold+=d.v;SFX.coin();showText(wx,wy,`+${d.v}G`,'#FFD700');}
+                part(tx,ty,d.c,8); setB(tx,ty,BLOCKS.AIR); SFX.break();
             }
         } else if(btn===2) { // Place
-            // 플레이어 겹침 방지
             let px=p.x/TILE, py=p.y/TILE, pw=p.w/TILE, ph=p.h/TILE;
             if (!(tx >= px+pw || tx+1 <= px || ty >= py+ph || ty+1 <= py)) return;
-
-            if(getB(tx,ty)===BLOCKS.AIR || DEFS[getB(tx,ty)].f) {
+            if(getB(tx,ty)===BLOCKS.AIR || DEFS[getB(tx,ty)].f || DEFS[getB(tx,ty)].bg) {
                 let c=(it===BLOCKS.WATER?5:(it===BLOCKS.LAVA?30:1));
-                if(p.gold>=c){p.gold-=c;setB(tx,ty,it);SFX.place();} else showText(wx,wy,"골드 부족!",'#ff5252');
+                if(p.gold>=c){p.gold-=c;setB(tx,ty,it);SFX.place();} else showText(wx,wy,"Need Gold!",'#ff5252');
             }
         }
     }
 
-    function hit(e,d) { if(e.inv>0)return; e.hp-=d; e.inv=20; if(e===p){flash=0.6;shake=5;updHud();showText(p.x,p.y,`-${d}`,'#ff5252');} SFX.hit(); }
+    function hit(e,d) { if(e.inv>0)return; e.hp-=d; e.inv=30; if(e===p){flash=0.6;shake=5;updHud();showText(p.x,p.y,`-${d}`,'#ff5252');} SFX.hit(); }
     function exp(cx,cy,r) {
         SFX.exp(); shake=r*3; part(cx,cy,'#f00',30);
         let rr=Math.ceil(r);
@@ -581,20 +737,21 @@
         }
         mobs.forEach(m=>{if(Math.hypot(m.x/TILE-cx,m.y/TILE-cy)<r){m.hp-=50;m.vy=-10;showText(m.x,m.y,"50",'#fff');}});
     }
-    function part(tx,ty,c,n) { for(let i=0;i<n;i++)parts.push({x:tx*TILE+20,y:ty*TILE+20,vx:(Math.random()-.5)*10,vy:(Math.random()-.5)*10,l:20+Math.random()*20,c:c,s:Math.random()*5+2}); }
-    function showText(x, y, txt, c) { floatTexts.push({x, y, txt, c, l:40}); }
+    function part(tx,ty,c,n) { for(let i=0;i<n;i++)parts.push({x:tx*TILE+20,y:ty*TILE+20,vx:(Math.random()-.5)*8,vy:(Math.random()-.5)*8,l:20+Math.random()*15,c:c,s:Math.random()*6+2}); }
+    function showText(x, y, txt, c) { floatTexts.push({x, y, txt, c, l:50}); }
 
-    function win(){state="SHOP";p.gold+=100;save();document.getElementById('overlay').style.display='flex';document.getElementById('shop-menu').style.display='block';document.getElementById('shop-gold').innerText=p.gold;}
+    function win(){state="SHOP";p.gold+=100;localStorage.setItem('vq_save_v4',JSON.stringify({l:lv,hp:p.hp,mx:p.max,g:p.gold,s:p.sp,d:p.dmg,w:p.wand,b:p.bow,hm:p.hammer,i:inv}));document.getElementById('overlay').style.display='flex';document.getElementById('shop-menu').style.display='block';document.getElementById('shop-gold').innerText=p.gold;}
     function die(){state="DEAD";document.getElementById('overlay').style.display='flex';document.getElementById('shop-menu').style.display='none';document.getElementById('death-menu').style.display='block';}
-    function restartGame(){p.hp=p.max;genLevel(lv);startGame(false);}
+    function restartGame(){p.hp=p.max;genLevel(lv);start(false);}
     window.nextLevel=()=>{lv++;genLevel(lv);state="PLAY";document.getElementById('overlay').style.display='none';}
-    function save(){localStorage.setItem('vq_true_save',JSON.stringify({l:lv,hp:p.hp,mx:p.max,g:p.gold,s:p.sp,d:p.dmg,w:p.wand,i:inv}));toast("저장됨");}
-    function toast(m){let t=document.getElementById('toast');t.innerText=m;t.style.opacity=1;setTimeout(()=>t.style.opacity=0,1500);}
+    
     function updHud(){
-        document.getElementById('ui-level').innerText=lv; document.getElementById('ui-gold').innerText=p.gold;
+        document.getElementById('ui-lvl').innerText=lv; document.getElementById('ui-gold').innerText=p.gold;
         document.getElementById('ui-hp').innerText=Math.floor(p.hp); document.getElementById('ui-max').innerText=p.max;
         document.getElementById('hp-bar').style.width=Math.max(0,p.hp/p.max*100)+'%';
-        let bb=document.getElementById('breath-box'); if(p.air<100){bb.style.display='block';document.getElementById('breath-bar').style.width=p.air+'%';}else bb.style.display='none';
+        let bb=document.getElementById('breath-con');
+        if(p.air<100){ bb.style.display='block'; document.getElementById('air-bar').style.width=p.air+'%'; document.getElementById('ui-air-txt').innerText=Math.floor(p.air)+'%'; }
+        else bb.style.display='none';
     }
     function updInv(){
         let b=document.getElementById('inventory-bar'); b.innerHTML='';
@@ -611,7 +768,9 @@
         if(t==='speed'){c=150;if(p.gold>=c)p.sp++;}
         if(t==='maxhp'){c=300;if(p.gold>=c){p.max+=50;p.hp+=50;}}
         if(t==='wand'){c=500;if(p.gold>=c&&!p.wand){p.wand=true;inv.push(ITEMS.WAND);updInv();}}
-        if(p.gold>=c){p.gold-=c;SFX.coin();updHud();document.getElementById('shop-gold').innerText=p.gold;}else toast("골드 부족!");
+        if(t==='bow'){c=400;if(p.gold>=c&&!p.bow){p.bow=true;inv.push(ITEMS.BOW);updInv();}}
+        if(t==='hammer'){c=800;if(p.gold>=c&&!p.hammer){p.hammer=true;inv.push(ITEMS.HAMMER);updInv();}}
+        if(p.gold>=c){p.gold-=c;SFX.coin();updHud();document.getElementById('shop-gold').innerText=p.gold;}else toast("Not enough Gold!");
     }
 
     function lum(hex,l) {
@@ -644,19 +803,27 @@
     }
     function drawEnt(e,c) {
         let d=4, s=lum(c,-0.3);
+        ctx.save();
+        if(e.spin>0) { ctx.translate(e.x+e.w/2, e.y+e.h/2); ctx.rotate(e.spin*0.5); ctx.translate(-(e.x+e.w/2), -(e.y+e.h/2)); }
         ctx.fillStyle=s; ctx.fillRect(e.x+d,e.y-d,e.w,e.h);
         ctx.fillStyle=c; ctx.fillRect(e.x,e.y,e.w,e.h);
+        if(e.fly) { 
+            ctx.fillStyle='#222'; let wo = Math.sin(time*0.05)*10;
+            ctx.beginPath(); ctx.moveTo(e.x+10,e.y+10); ctx.lineTo(e.x-10,e.y-5+wo); ctx.lineTo(e.x+10,e.y+20); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(e.x+e.w-10,e.y+10); ctx.lineTo(e.x+e.w+10,e.y-5+wo); ctx.lineTo(e.x+e.w-10,e.y+20); ctx.fill();
+        }
+        ctx.restore();
     }
 
     function draw() {
-        let tn=(Math.sin(time*0.001)+1)/2, r,g,b;
-        if(weather==="RAIN"){r=40;g=50;b=70;} else {r=Math.floor(100*tn);g=Math.floor(180*tn);b=Math.floor(220*tn);}
-        ctx.fillStyle=`rgb(${Math.max(20,r)},${Math.max(20,g)},${Math.max(50,b)})`; ctx.fillRect(0,0,W,H);
+        let tn=(Math.sin(time*0.0005)+1)/2, r,g,b;
+        if(weather==="RAIN"){r=40;g=50;b=70;} 
+        else { r=Math.floor(10+100*tn); g=Math.floor(15+160*tn); b=Math.floor(30+225*tn); }
+        ctx.fillStyle=`rgb(${r},${g},${b})`; ctx.fillRect(0,0,W,H);
 
         if(weather==="NONE") {
-            ctx.fillStyle = tn > 0.5 ? '#FFD700' : '#F4F6F0';
-            let sunY = H/2 + Math.cos(time*0.001)*(H/2+50), sunX = W/2 + Math.sin(time*0.001)*(W/2);
-            ctx.beginPath(); ctx.arc(sunX,sunY,40,0,Math.PI*2); ctx.fill();
+            let sunY = H/2 + Math.cos(time*0.0005)*(H/2+80), sunX = W/2 + Math.sin(time*0.0005)*(W/2+80);
+            ctx.fillStyle = tn > 0.2 ? '#FFD700' : '#F4F6F0'; ctx.beginPath(); ctx.arc(sunX,sunY,40,0,Math.PI*2); ctx.fill();
         }
 
         ctx.fillStyle=weather==="RAIN"?`rgba(0,0,0,0.4)`:`rgba(0,0,0,0.1)`;
@@ -683,23 +850,28 @@
         tnts.forEach(t=>draw3D(t.x*TILE,t.y*TILE,(Math.floor(time/5)%2===0)?"#fff":"#d32f2f",{txt:"TNT"},false));
         mobs.forEach(m=>{
             drawEnt(m,m.hurt>0?'#fff':m.c);
-            ctx.fillStyle='#333';ctx.fillRect(m.x,m.y-8,m.w,4);
-            ctx.fillStyle='#0f0';ctx.fillRect(m.x,m.y-8,m.w*(m.hp/m.max),4);
+            ctx.fillStyle='#333';ctx.fillRect(m.x,m.y-8,m.w,4); ctx.fillStyle='#0f0';ctx.fillRect(m.x,m.y-8,m.w*(m.hp/m.max),4);
         });
         projs.forEach(p=>{ctx.fillStyle='#FF5722';ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);ctx.fill();});
         
         drawEnt(p,'#FFC107');
         ctx.fillStyle='#1E88E5'; ctx.fillRect(p.x,p.y+16,p.w,12);
-        ctx.fillStyle='black'; let fo=p.dir===1?4:-4;
-        ctx.fillRect(p.x+14+fo-6,p.y+8,4,4); ctx.fillRect(p.x+14+fo+2,p.y+8,4,4);
+        
+        ctx.fillStyle='black'; 
+        let fo=p.dir===1?4:-4;
+        let ey=p.y+8;
+        if(p.atkAnim>0) { ctx.fillRect(p.x+14+fo-6,ey+2,4,2); ctx.fillRect(p.x+14+fo+2,ey+2,4,2); } 
+        else if(p.inv>0) { ctx.font="10px arial"; ctx.fillText("><", p.x+14+fo-6, ey+6); } 
+        else if(p.blink>0) { ctx.fillRect(p.x+14+fo-6,ey+2,4,1); ctx.fillRect(p.x+14+fo+2,ey+2,4,1); } 
+        else { ctx.fillRect(p.x+14+fo-6,ey,4,4); ctx.fillRect(p.x+14+fo+2,ey,4,4); }
         
         let it=inv[slot];
-        if(it===ITEMS.SWORD||it===ITEMS.WAND) {
+        if(it===ITEMS.SWORD||it===ITEMS.WAND||it===ITEMS.BOW||it===ITEMS.HAMMER) {
             ctx.save(); ctx.translate(p.x+p.w/2,p.y+20);
             if(p.dir===-1)ctx.scale(-1,1);
-            if(p.inv>5)ctx.rotate(-1);
-            ctx.fillStyle=lum(DEFS[it].c,-0.3); ctx.fillRect(12,-6,20,6);
-            ctx.fillStyle=DEFS[it].c; ctx.fillRect(10,-4,20,6);
+            let rot = 0; if(p.atkAnim > 0) rot = -Math.PI/2 * (p.atkAnim/15);
+            ctx.rotate(rot);
+            ctx.fillStyle=lum(DEFS[it].c,-0.3); ctx.fillRect(12,-6,20,6); ctx.fillStyle=DEFS[it].c; ctx.fillRect(10,-4,20,6);
             ctx.restore();
         }
 
@@ -708,15 +880,10 @@
         if(mouse.active) {
             let tx=Math.floor((mouse.x+cx)/TILE)*TILE, ty=Math.floor((mouse.y+cy)/TILE)*TILE;
             ctx.strokeStyle = mode==="MINE" ? 'rgba(255, 82, 82, 0.8)' : 'rgba(0, 176, 255, 0.8)';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(tx, ty, TILE, TILE);
+            ctx.lineWidth = 2; ctx.strokeRect(tx, ty, TILE, TILE);
         }
 
-        floatTexts.forEach(ft => {
-            ctx.fillStyle = ft.c; ctx.font = "bold 16px sans-serif";
-            ctx.strokeStyle = "black"; ctx.lineWidth = 3;
-            ctx.strokeText(ft.txt, ft.x, ft.y); ctx.fillText(ft.txt, ft.x, ft.y);
-        });
+        floatTexts.forEach(ft => { ctx.fillStyle=ft.c; ctx.font="bold 16px sans-serif"; ctx.strokeStyle="black"; ctx.lineWidth=3; ctx.strokeText(ft.txt, ft.x, ft.y); ctx.fillText(ft.txt, ft.x, ft.y); });
 
         ctx.restore();
 
@@ -727,14 +894,18 @@
         if(flash>0){ctx.fillStyle=`rgba(255,0,0,${flash})`;ctx.fillRect(0,0,W,H);}
     }
 
-    window.toggleSound = toggleSound;
-    window.startGame = startGame;
-    window.loadGame = loadGame;
+    // Export functions to global scope
+    window.Game = { start, loadFromCache, loadFromFile, saveToFile, handleFile, restart: restartGame, nextLevel: window.nextLevel, buy: window.buyItem };
+    window.startGame = start;
+    window.loadGame = loadFromCache;
     window.restartGame = restartGame;
-    window.nextLevel = nextLevel;
-    window.buyItem = buyItem;
+    window.nextLevel = window.nextLevel;
+    window.buyItem = window.buyItem;
 
-})();
+    // Auto-init
+    init();
+
+})(); // End of IIFE
 </script>
 </body>
 </html>
