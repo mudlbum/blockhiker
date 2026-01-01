@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Voxel Quest: Final Fixed</title>
     <style>
-        /* --- 기본 스타일 --- */
+        /* --- 스타일 --- */
         body { margin: 0; overflow: hidden; background: #111; font-family: 'Segoe UI', sans-serif; user-select: none; touch-action: none; -webkit-user-select: none; }
         canvas { display: block; touch-action: none; }
 
-        /* UI 레이어 */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         
-        /* HUD (상태창) */
         #hud {
             position: absolute; top: 10px; left: 10px;
             color: white; font-weight: bold; font-size: 15px;
@@ -31,7 +29,6 @@
         .air-fill { height: 100%; background: linear-gradient(90deg, #40C4FF, #0288D1); transition: width 0.1s; }
         #breath-con { display: none; margin-top: 4px; }
 
-        /* 보스 체력바 */
         #boss-hud {
             position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
             width: 60%; max-width: 400px; display: none; text-align: center;
@@ -40,7 +37,6 @@
         .boss-bar-bg { width: 100%; height: 16px; background: #222; border: 2px solid #fff; box-shadow: 0 0 15px rgba(0,0,0,0.8); border-radius: 4px; overflow: hidden; }
         .boss-bar-fill { width: 100%; height: 100%; background: linear-gradient(90deg, #FF4081, #C51162); transition: width 0.2s; }
 
-        /* 인벤토리 */
         #inventory-bar {
             position: absolute; top: 10px; right: 10px;
             display: flex; gap: 6px; max-width: 50%; overflow-x: auto;
@@ -59,7 +55,6 @@
         .slot-icon { font-size: 28px; filter: drop-shadow(2px 2px 0 #000); }
         .slot-block { width: 24px; height: 24px; border: 1px solid rgba(0,0,0,0.5); box-shadow: 3px 3px 0 rgba(0,0,0,0.5); }
 
-        /* PC용 도움말 */
         #pc-help {
             position: absolute; bottom: 20px; left: 20px;
             color: rgba(255,255,255,0.6); font-size: 13px;
@@ -67,7 +62,6 @@
             display: none; pointer-events: none;
         }
 
-        /* 모바일 컨트롤러 */
         #controls {
             position: absolute; bottom: 20px; width: 100%; height: 140px;
             pointer-events: none; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box;
@@ -94,7 +88,6 @@
         .mode-mine { border-color: #ff5252 !important; color: #ff5252; text-shadow: 0 0 5px #ff5252; }
         .mode-build { border-color: #40c4ff !important; color: #40c4ff; text-shadow: 0 0 5px #40c4ff; }
 
-        /* 메뉴 패널 */
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
@@ -130,7 +123,6 @@
         .shop-btn:active { transform: scale(0.95); background: #555; }
         .shop-btn small { font-size: 11px; color: #aaa; }
 
-        /* 알림 메시지 */
         .toast {
             position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%);
             color: #FFD700; font-size: 24px; font-weight: bold;
@@ -148,7 +140,6 @@
 
     <canvas id="gameCanvas"></canvas>
 
-    <!-- UI 레이어 -->
     <div id="ui-layer">
         <div id="hud">
             <div class="stat-card">
@@ -163,7 +154,6 @@
                     <span><span id="ui-hp">100</span> / <span id="ui-max">100</span></span>
                 </div>
                 <div class="bar-bg"><div id="hp-bar" class="hp-fill"></div></div>
-                
                 <div id="breath-con">
                     <div class="row" style="font-size:11px; color:#40C4FF; margin-top:2px;">
                         <span>OXYGEN</span> <span id="ui-air-txt">100%</span>
@@ -174,24 +164,18 @@
         </div>
 
         <div id="pc-help">
-            [WASD / Arrow] Move & Jump<br>
-            [Space] Jump / Double Jump<br>
-            [L-Click] Attack / Mine<br>
-            [R-Click] Place Block<br>
-            [1-9] Select Item
+            [WASD] 이동/점프<br>[좌클릭] 공격/채굴<br>[우클릭] 설치<br>[1-9] 아이템<br>[스페이스] 더블점프
         </div>
 
         <div id="boss-hud">
             <div class="boss-name">BOSS</div>
             <div class="boss-bar-bg"><div id="boss-fill" class="boss-bar-fill"></div></div>
         </div>
-        <div id="toast" class="toast">Saved!</div>
+        <div id="toast" class="toast">저장됨!</div>
     </div>
 
-    <!-- 인벤토리 -->
     <div id="inventory-bar"></div>
 
-    <!-- 모바일 컨트롤 (PC에선 자동 숨김) -->
     <div id="controls">
         <div class="btn-group">
             <div id="btn-left" class="touch-btn">◀</div>
@@ -202,57 +186,83 @@
         </div>
     </div>
     <div id="mode-toggle" class="mode-mine">⛏️</div>
-
     <div class="sound-toggle" onclick="toggleSound()">🔊 Sound ON</div>
 
-    <!-- 오버레이 화면 -->
     <div id="overlay">
-        <!-- 시작 화면 -->
         <div id="start-menu" class="panel">
             <h1 style="color:#FFD700; margin:0 0 10px 0; text-shadow:2px 2px 0 #000; font-size:32px;">VOXEL QUEST</h1>
             <p style="color:#aaa; font-size:14px; margin-bottom:20px;">Final Fixed Edition</p>
-            <button class="big-btn" onclick="window.Game.start(true)">새 게임 시작 (NEW GAME)</button>
+            <button class="big-btn" onclick="window.Game.start(true)">새 게임 시작</button>
             <div class="action-row">
-                <button class="sub-btn" style="background:#2196F3;" onclick="window.Game.loadFromCache()">이어하기 (CACHE)</button>
-                <button class="sub-btn" style="background:#FF9800;" onclick="window.Game.loadFromFile()">파일 불러오기 (LOAD)</button>
+                <button class="sub-btn" style="background:#2196F3;" onclick="window.Game.loadFromCache()">이어하기</button>
+                <button class="sub-btn" style="background:#FF9800;" onclick="window.Game.loadFromFile()">파일 불러오기</button>
             </div>
         </div>
 
-        <!-- 상점/클리어 화면 -->
         <div id="shop-menu" class="panel" style="display:none;">
             <h2 style="color:#FFD700; margin-top:0;">STAGE CLEAR!</h2>
-            <p>보유 골드: <span id="shop-gold" style="color:#FFD700; font-size:18px;">0</span></p>
+            <p>Gold: <span id="shop-gold" style="color:#FFD700; font-size:18px;">0</span></p>
             <div class="shop-grid">
                 <div class="shop-btn" onclick="window.Game.buy('heal')"><span>❤️ 회복</span><small>50G</small></div>
                 <div class="shop-btn" onclick="window.Game.buy('damage')"><span>⚔️ 공격력</span><small>200G</small></div>
                 <div class="shop-btn" onclick="window.Game.buy('speed')"><span>👟 이속</span><small>150G</small></div>
                 <div class="shop-btn" onclick="window.Game.buy('maxhp')"><span>🛡️ 체력</span><small>300G</small></div>
-                
                 <div class="shop-btn" onclick="window.Game.buy('bow')" id="btn-bow"><span>🏹 활</span><small>400G</small></div>
                 <div class="shop-btn" onclick="window.Game.buy('wand')" id="btn-wand"><span>🔥 완드</span><small>600G</small></div>
                 <div class="shop-btn" onclick="window.Game.buy('hammer')" id="btn-hammer"><span>🔨 해머</span><small>800G</small></div>
             </div>
-            <button class="big-btn" onclick="window.Game.nextLevel()">다음 레벨 (NEXT LEVEL)</button>
-            <button class="sub-btn" style="width:100%; margin-top:10px; background:#555;" onclick="window.Game.saveToFile()">💾 파일로 저장 (SAVE TO FILE)</button>
+            <button class="big-btn" onclick="window.Game.nextLevel()">다음 레벨</button>
+            <button class="sub-btn" style="width:100%; margin-top:10px; background:#555;" onclick="window.Game.saveToFile()">💾 파일로 저장</button>
         </div>
 
-        <!-- 사망 화면 -->
         <div id="death-menu" class="panel" style="display:none; border-color:#d32f2f;">
-            <h1 style="color:#d32f2f; text-shadow:2px 2px 0 #000;">YOU DIED</h1>
+            <h1 style="color:#d32f2f; text-shadow:2px 2px 0 #000;">GAME OVER</h1>
             <p>레벨 <span id="death-level">1</span>에서 사망</p>
-            <button class="big-btn" style="background:linear-gradient(to bottom,#f44336,#c62828); box-shadow:0 5px 0 #b71c1c;" onclick="window.Game.restart()">다시 시작 (TRY AGAIN)</button>
+            <button class="big-btn" style="background:linear-gradient(to bottom,#f44336,#c62828); box-shadow:0 5px 0 #b71c1c;" onclick="window.Game.restart()">다시 시작</button>
         </div>
     </div>
-
-    <!-- 파일 입력 (숨김) -->
+    
     <input type="file" id="file-input" style="display:none;" accept=".json" onchange="window.Game.handleFile(this)">
 
 <script>
 (function() { 
-    // --- 기기 감지 ---
+    // --- 설정 및 변수 ---
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 800;
+    const TILE=40, DEPTH=12, GRAVITY=0.5, RANGE=5*TILE;
+    const BLOCKS={AIR:0,DIRT:1,GRASS:2,STONE:3,WOOD:4,LEAVES:5,BRICK:6,SAND:7,SNOW:8,COAL:9,GOLD:10,DIAMOND:11,TNT:12,GLASS:13,PLANK:14,SPIKE:15,GOAL:99,WATER:20,LAVA:21, ICE:22};
+    const ITEMS={SWORD:100,WAND:101,BOW:102,HAMMER:103};
+    
+    const DEFS={
+        [BLOCKS.DIRT]:{c:'#795548'}, [BLOCKS.GRASS]:{c:'#795548',top:'#4caf50'}, [BLOCKS.STONE]:{c:'#9E9E9E'},
+        [BLOCKS.WOOD]:{c:'#5D4037',side:'#3E2723',bg:true}, [BLOCKS.LEAVES]:{c:'#2E7D32',a:0.9,bg:true}, 
+        [BLOCKS.BRICK]:{c:'#D32F2F', speed:1.3}, [BLOCKS.SAND]:{c:'#FBC02D', speed:0.6},
+        [BLOCKS.SNOW]:{c:'#E0F7FA',top:'#fff'}, [BLOCKS.COAL]:{c:'#9E9E9E',dot:'#212121',v:5}, 
+        [BLOCKS.GOLD]:{c:'#9E9E9E',dot:'#FFEB3B',v:15}, [BLOCKS.DIAMOND]:{c:'#9E9E9E',dot:'#00BCD4',v:50}, 
+        [BLOCKS.TNT]:{c:'#E53935',txt:'TNT'}, [BLOCKS.GLASS]:{c:'#81D4FA',a:0.3}, 
+        [BLOCKS.PLANK]:{c:'#8D6E63', jump:2.0}, [BLOCKS.SPIKE]:{c:'#BDBDBD',s:true},
+        [BLOCKS.WATER]:{c:'#29B6F6',a:0.5,f:true}, [BLOCKS.LAVA]:{c:'#FF5722',a:0.8,f:true,l:true},
+        [BLOCKS.ICE]:{c:'#B3E5FC',a:0.6, ice:true, speed:1.2, melt:true}, [BLOCKS.GOAL]:{c:'#7B1FA2',dot:'#FFD700'},
+        [ITEMS.SWORD]:{i:'🗡️',tool:true,c:'#00BCD4'}, [ITEMS.WAND]:{i:'🔥',tool:true,c:'#FF5722'},
+        [ITEMS.BOW]:{i:'🏹',tool:true,c:'#8D6E63'}, [ITEMS.HAMMER]:{i:'🔨',tool:true,c:'#607D8B'}
+    };
+    
+    const MOBS = {
+        'SLIME': {c:'#76ff03',w:30,h:20,sp:2,hp:30,rw:10}, 'ZOMBIE': {c:'#2e7d32',w:28,h:38,sp:1.5,hp:50,rw:20},
+        'BAT': {c:'#424242',w:24,h:24,sp:3,hp:20,rw:15,fly:true},
+        'BOSS_SLIME': {c:'#00E676',w:90,h:90,sp:3,hp:600,rw:500,boss:true,name:"KING SLIME"},
+        'BOSS_ZOMBIE': {c:'#D50000',w:60,h:100,sp:4,hp:800,rw:600,boss:true,name:"MUTANT ZOMBIE"},
+        'BOSS_VOID': {c:'#212121',w:100,h:120,sp:2,hp:1200,rw:1000,boss:true,name:"VOID LORD"}
+    };
 
-    // --- 오디오 시스템 ---
+    let cvs, ctx, W, H, state="MENU", lv=1, ww=100, wh=50;
+    let world=[], mobs=[], projs=[], tnts=[], parts=[], wParts=[], floatTexts=[];
+    let weather="NONE", time=0, shake=0, flash=0, boss=null, cam={x:0,y:0};
+    let p={x:0,y:0,w:28,h:38,vx:0,vy:0,g:false,dir:1,hp:100,max:100,gold:0,sp:6,dmg:15,wand:false,bow:false,hammer:false,air:100,inv:0,atkAnim:0,blink:0,jumpCount:0,spin:0};
+    let inv=[ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA, BLOCKS.BRICK], slot=0;
+    let keys={l:false,r:false,u:false}, mode="MINE";
+    let mouse = {x:0, y:0, active:false};
+
+    // --- 오디오 ---
     const AudioSys = {
         ctx: null, muted: false,
         init() { if(!this.ctx) this.ctx=new(window.AudioContext||window.webkitAudioContext)(); if(this.ctx.state==='suspended')this.ctx.resume(); },
@@ -272,8 +282,7 @@
             s.connect(g); g.connect(this.ctx.destination); s.start();
         }
     };
-    window.toggleSound = function(){ AudioSys.muted=!AudioSys.muted; document.querySelector('.sound-toggle').innerText=AudioSys.muted?"🔇 Sound OFF":"🔊 Sound ON"; };
-    
+    function toggleSound(){ AudioSys.muted=!AudioSys.muted; document.querySelector('.sound-toggle').innerText=AudioSys.muted?"🔇 Sound OFF":"🔊 Sound ON"; }
     const SFX = {
         jump:()=>AudioSys.play(300,'square',0.1,0.05), coin:()=>AudioSys.play(1200,'sine',0.15,0.1),
         hit:()=>AudioSys.play(100,'sawtooth',0.1,0.1), swing:()=>AudioSys.play(200,'triangle',0.1,0.05),
@@ -282,108 +291,67 @@
         shoot:()=>AudioSys.play(800,'triangle',0.1,0.05), spin:()=>AudioSys.play(500,'sine',0.2,0.1)
     };
 
-    // --- 게임 상수 ---
-    const TILE=40, DEPTH=12, GRAVITY=0.5, RANGE=5*TILE;
-    const BLOCKS={AIR:0,DIRT:1,GRASS:2,STONE:3,WOOD:4,LEAVES:5,BRICK:6,SAND:7,SNOW:8,COAL:9,GOLD:10,DIAMOND:11,TNT:12,GLASS:13,PLANK:14,SPIKE:15,GOAL:99,WATER:20,LAVA:21, ICE:22};
-    const ITEMS={SWORD:100,WAND:101,BOW:102,HAMMER:103};
-    
-    // 블록 정의 (특성: speed, jump, bg, ice)
-    const DEFS={
-        [BLOCKS.DIRT]:{c:'#795548'}, [BLOCKS.GRASS]:{c:'#795548',top:'#4caf50'}, [BLOCKS.STONE]:{c:'#9E9E9E'},
-        [BLOCKS.WOOD]:{c:'#5D4037',side:'#3E2723',bg:true}, [BLOCKS.LEAVES]:{c:'#2E7D32',a:0.9,bg:true}, 
-        [BLOCKS.BRICK]:{c:'#D32F2F', speed:1.3}, 
-        [BLOCKS.SAND]:{c:'#FBC02D', speed:0.6},
-        [BLOCKS.SNOW]:{c:'#E0F7FA',top:'#fff'},
-        [BLOCKS.COAL]:{c:'#9E9E9E',dot:'#212121',v:5}, [BLOCKS.GOLD]:{c:'#9E9E9E',dot:'#FFEB3B',v:15},
-        [BLOCKS.DIAMOND]:{c:'#9E9E9E',dot:'#00BCD4',v:50}, [BLOCKS.TNT]:{c:'#E53935',txt:'TNT'},
-        [BLOCKS.GLASS]:{c:'#81D4FA',a:0.3}, 
-        [BLOCKS.PLANK]:{c:'#8D6E63', jump:2.0},
-        [BLOCKS.SPIKE]:{c:'#BDBDBD',s:true},
-        [BLOCKS.WATER]:{c:'#29B6F6',a:0.5,f:true}, 
-        [BLOCKS.LAVA]:{c:'#FF5722',a:0.8,f:true,l:true},
-        [BLOCKS.ICE]:{c:'#B3E5FC',a:0.6, ice:true, speed:1.2, melt:true},
-        [BLOCKS.GOAL]:{c:'#7B1FA2',dot:'#FFD700'},
-        [ITEMS.SWORD]:{i:'🗡️',tool:true,c:'#00BCD4'}, [ITEMS.WAND]:{i:'🔥',tool:true,c:'#FF5722'},
-        [ITEMS.BOW]:{i:'🏹',tool:true,c:'#8D6E63'}, [ITEMS.HAMMER]:{i:'🔨',tool:true,c:'#607D8B'}
-    };
-    
-    // 몬스터
-    const MOBS = {
-        'SLIME': {c:'#76ff03',w:30,h:20,sp:2,hp:30,rw:10},
-        'ZOMBIE': {c:'#2e7d32',w:28,h:38,sp:1.5,hp:50,rw:20},
-        'BAT': {c:'#424242',w:24,h:24,sp:3,hp:20,rw:15,fly:true},
-        'BOSS_SLIME': {c:'#00E676',w:90,h:90,sp:3,hp:600,rw:500,boss:true,name:"KING SLIME"},
-        'BOSS_ZOMBIE': {c:'#D50000',w:60,h:100,sp:4,hp:800,rw:600,boss:true,name:"MUTANT ZOMBIE"},
-        'BOSS_VOID': {c:'#212121',w:100,h:120,sp:2,hp:1200,rw:1000,boss:true,name:"VOID LORD"}
-    };
-
-    // --- 전역 변수 ---
-    let cvs, ctx, W, H, state="MENU", lv=1, ww=100, wh=50;
-    let world=[], mobs=[], projs=[], tnts=[], parts=[], wParts=[], floatTexts=[];
-    let weather="NONE", time=0, shake=0, flash=0, boss=null, cam={x:0,y:0};
-    let p={x:0,y:0,w:28,h:38,vx:0,vy:0,g:false,dir:1,hp:100,max:100,gold:0,sp:6,dmg:15,wand:false,bow:false,hammer:false,air:100,inv:0,atkAnim:0,blink:0,jumpCount:0,spin:0};
-    let inv=[ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA, BLOCKS.BRICK], slot=0;
-    let keys={l:false,r:false,u:false}, mode="MINE";
-    let mouse = {x:0, y:0, active:false};
-    let weatherTimer = 0;
-
-    // --- 초기화 함수 ---
+    // --- 시스템 ---
     function init() {
         cvs=document.getElementById('gameCanvas'); ctx=cvs.getContext('2d',{alpha:false});
-        resize(); window.addEventListener('resize',resize);
-        if(localStorage.getItem('vq_save_v4')) document.getElementById('btn-continue').style.display='block';
+        resize(); window.addEventListener('resize', resize);
         
-        if (!isMobile) {
+        // PC 체크
+        if(!isMobile) {
             document.getElementById('controls').style.display = 'none';
             document.getElementById('mode-toggle').style.display = 'none';
             document.getElementById('pc-help').style.display = 'block';
         }
+        if(localStorage.getItem('vq_save_v5')) document.getElementById('btn-continue').style.display='block';
+
         setupCtrl(); loop();
     }
     function resize(){ W=cvs.width=window.innerWidth; H=cvs.height=window.innerHeight; }
 
     function setupCtrl() {
-        const bd=(id,k)=>{
-            let e=document.getElementById(id);
-            const down = (ev) => { if(ev.cancelable) ev.preventDefault(); e.style.background='rgba(255,215,0,0.4)'; keys[k]=true; };
-            const up = (ev) => { if(ev.cancelable) ev.preventDefault(); e.style.background=''; keys[k]=false; };
-            e.addEventListener('touchstart', down); e.addEventListener('touchend', up);
-            e.addEventListener('mousedown', down); e.addEventListener('mouseup', up); e.addEventListener('mouseleave', up);
+        const bind = (id, key) => {
+            const el = document.getElementById(id);
+            const down = (e) => { if(e.cancelable) e.preventDefault(); el.style.background='rgba(255,215,0,0.4)'; keys[key]=true; };
+            const up = (e) => { if(e.cancelable) e.preventDefault(); el.style.background=''; keys[key]=false; };
+            el.addEventListener('touchstart', down); el.addEventListener('touchend', up);
+            el.addEventListener('mousedown', down); el.addEventListener('mouseup', up); el.addEventListener('mouseleave', up);
         };
-        bd('btn-left','l'); bd('btn-right','r'); bd('btn-jump','u');
+        bind('btn-left','l'); bind('btn-right','r'); bind('btn-jump','u');
 
-        let mb=document.getElementById('mode-toggle');
-        const toggleMode = (e) => {
+        const mb = document.getElementById('mode-toggle');
+        const tm = (e) => { 
             if(e.cancelable) e.preventDefault(); 
             mode=mode==="MINE"?"BUILD":"MINE"; mb.innerText=mode==="MINE"?"⛏️":"🧱"; mb.className=`mode-${mode.toLowerCase()}`;
         };
-        mb.addEventListener('touchstart', toggleMode); mb.addEventListener('mousedown', toggleMode);
-        
-        const inputHandler = (e) => {
-            if(state!=="PLAY")return;
+        mb.addEventListener('touchstart', tm); mb.addEventListener('mousedown', tm);
+
+        // 통합 입력 처리
+        const handleInput = (e) => {
+            if(state!=="PLAY") return;
             let cx, cy;
             if(e.touches && e.touches.length > 0) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; } 
             else { cx = e.clientX; cy = e.clientY; }
-            let r=cvs.getBoundingClientRect();
-            mouse.x = cx - r.left; mouse.y = cy - r.top; mouse.active = true;
             
+            let rect = cvs.getBoundingClientRect();
+            mouse.x = cx - rect.left; mouse.y = cy - rect.top; mouse.active = true;
+
             if(e.type === 'touchstart' || e.type === 'mousedown') {
-                if(e.cancelable) e.preventDefault();
+                if(e.cancelable && e.type==='touchstart') e.preventDefault();
                 let it=inv[slot], btn=0;
                 if (e.type === 'mousedown') btn = e.button; 
                 else { if(it===ITEMS.SWORD||it===ITEMS.WAND||it===ITEMS.BOW||it===ITEMS.HAMMER) btn=0; else btn=(mode==="MINE")?0:2; }
-                if(it>=100 && it<=103) interact(0, mouse.x, mouse.y);
+                if(it>=100 && it<=103) interact(0, mouse.x, mouse.y); // 무기는 항상 좌클릭
                 else interact(btn, mouse.x, mouse.y);
             }
         };
 
-        cvs.addEventListener('touchstart',inputHandler,{passive:false}); 
-        cvs.addEventListener('touchmove',inputHandler,{passive:false});
-        cvs.addEventListener('touchend',()=>{mouse.active=false;});
-        cvs.addEventListener('mousedown', inputHandler);
+        cvs.addEventListener('touchstart', handleInput, {passive:false});
+        cvs.addEventListener('touchmove', handleInput, {passive:false});
+        cvs.addEventListener('touchend', ()=>{mouse.active=false;});
+        cvs.addEventListener('mousedown', handleInput);
         cvs.addEventListener('mousemove', (e) => {
             let r=cvs.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.active = true;
-            if(e.buttons === 1 || e.buttons === 2) inputHandler(e);
+            if(e.buttons === 1 || e.buttons === 2) handleInput(e);
         });
         cvs.addEventListener('mouseup', ()=>{mouse.active=false;});
         cvs.addEventListener('contextmenu', e => e.preventDefault());
@@ -412,7 +380,7 @@
     }
     
     function loadFromCache() {
-        try{ let d=JSON.parse(localStorage.getItem('vq_save_v4')); if(!d)throw 0; applySave(d); }
+        try{ let d=JSON.parse(localStorage.getItem('vq_save_v5')); if(!d)throw 0; applySave(d); }
         catch(e){ alert("저장된 데이터가 없습니다."); }
     }
 
@@ -444,7 +412,8 @@
     }
 
     function genLevel(l) {
-        world=[]; mobs=[]; projs=[]; tnts=[]; parts=[]; floatTexts=[]; boss=null; document.getElementById('boss-hud').style.display='none';
+        world=[]; mobs=[]; projs=[]; tnts=[]; parts=[]; floatTexts=[]; boss=null; 
+        document.getElementById('boss-hud').style.display='none';
         
         let r=Math.random(); weather=r<0.2?"RAIN":(l>2&&r<0.4?"SNOW":"NONE");
         ww=150+(l*20); wh=60;
@@ -487,6 +456,7 @@
             world.push(row);
         }
 
+        // 나무
         for(let x=20; x<ww-20; x++) {
             if(Math.random()<0.03 && world[hts[x]][x]===BLOCKS.GRASS) {
                 let h = hts[x];
@@ -497,6 +467,7 @@
             }
         }
 
+        // 호수
         let numPonds = Math.floor(Math.random()*4)+2;
         for(let i=0; i<numPonds; i++) {
             let pw=10+Math.floor(Math.random()*8), sx=25+Math.floor(Math.random()*(ww-50));
@@ -702,7 +673,7 @@
                     m.hp-=dmg; m.hurt=10; m.vy=-5; showText(m.x, m.y, dmg, '#fff'); SFX.hit();
                     if(it===ITEMS.HAMMER) { shake=5; }
                 }});
-            } else { // BOW & WAND
+            } else { 
                 let a=Math.atan2(wy-(p.y+20), wx-(p.x+14));
                 projs.push({x:p.x+14,y:p.y+20,vx:Math.cos(a)*12,vy:Math.sin(a)*12,l:60}); SFX.shoot();
             }
@@ -711,14 +682,14 @@
 
         if(Math.hypot(p.x+14-wx, p.y+19-wy) > RANGE) return;
 
-        if(btn===0) { // Mine
+        if(btn===0) { 
             let b=getB(tx,ty);
             if(b===BLOCKS.TNT){setB(tx,ty,BLOCKS.AIR);tnts.push({x:tx,y:ty,tm:100});SFX.place();}
             else if(b!==BLOCKS.AIR && b!==BLOCKS.GOAL) {
                 let d=DEFS[b]; if(d.v){p.gold+=d.v;SFX.coin();showText(wx,wy,`+${d.v}G`,'#FFD700');}
                 part(tx,ty,d.c,8); setB(tx,ty,BLOCKS.AIR); SFX.break();
             }
-        } else if(btn===2) { // Place
+        } else if(btn===2) { 
             let px=p.x/TILE, py=p.y/TILE, pw=p.w/TILE, ph=p.h/TILE;
             if (!(tx >= px+pw || tx+1 <= px || ty >= py+ph || ty+1 <= py)) return;
             if(getB(tx,ty)===BLOCKS.AIR || DEFS[getB(tx,ty)].f || DEFS[getB(tx,ty)].bg) {
@@ -740,10 +711,10 @@
     function part(tx,ty,c,n) { for(let i=0;i<n;i++)parts.push({x:tx*TILE+20,y:ty*TILE+20,vx:(Math.random()-.5)*8,vy:(Math.random()-.5)*8,l:20+Math.random()*15,c:c,s:Math.random()*6+2}); }
     function showText(x, y, txt, c) { floatTexts.push({x, y, txt, c, l:50}); }
 
-    function win(){state="SHOP";p.gold+=100;localStorage.setItem('vq_save_v4',JSON.stringify({l:lv,hp:p.hp,mx:p.max,g:p.gold,s:p.sp,d:p.dmg,w:p.wand,b:p.bow,hm:p.hammer,i:inv}));document.getElementById('overlay').style.display='flex';document.getElementById('shop-menu').style.display='block';document.getElementById('shop-gold').innerText=p.gold;}
+    function win(){state="SHOP";p.gold+=100;localStorage.setItem('vq_save_v5',JSON.stringify({l:lv,hp:p.hp,mx:p.max,g:p.gold,s:p.sp,d:p.dmg,w:p.wand,b:p.bow,hm:p.hammer,i:inv}));document.getElementById('overlay').style.display='flex';document.getElementById('shop-menu').style.display='block';document.getElementById('shop-gold').innerText=p.gold;}
     function die(){state="DEAD";document.getElementById('overlay').style.display='flex';document.getElementById('shop-menu').style.display='none';document.getElementById('death-menu').style.display='block';}
     function restartGame(){p.hp=p.max;genLevel(lv);start(false);}
-    window.nextLevel=()=>{lv++;genLevel(lv);state="PLAY";document.getElementById('overlay').style.display='none';}
+    function nextLevel(){lv++;genLevel(lv);state="PLAY";document.getElementById('overlay').style.display='none';}
     
     function updHud(){
         document.getElementById('ui-lvl').innerText=lv; document.getElementById('ui-gold').innerText=p.gold;
@@ -761,7 +732,7 @@
             el.onclick=()=>{slot=i;updInv();}; b.appendChild(el);
         });
     }
-    window.buyItem=function(t){
+    function buyItem(t){
         let c=0;
         if(t==='heal'){c=50;if(p.gold>=c)p.hp=Math.min(p.hp+50,p.max);}
         if(t==='damage'){c=200;if(p.gold>=c)p.dmg+=10;}
@@ -894,18 +865,11 @@
         if(flash>0){ctx.fillStyle=`rgba(255,0,0,${flash})`;ctx.fillRect(0,0,W,H);}
     }
 
-    // Export functions to global scope
-    window.Game = { start, loadFromCache, loadFromFile, saveToFile, handleFile, restart: restartGame, nextLevel: window.nextLevel, buy: window.buyItem };
-    window.startGame = start;
-    window.loadGame = loadFromCache;
-    window.restartGame = restartGame;
-    window.nextLevel = window.nextLevel;
-    window.buyItem = window.buyItem;
+    // Export functions
+    window.Game = { start, loadFromCache, loadFromFile, saveToFile, handleFile, restart: restartGame, nextLevel, buy: buyItem };
+    window.addEventListener('load', init);
 
-    // Auto-init
-    init();
-
-})(); // End of IIFE
+})();
 </script>
 </body>
 </html>
