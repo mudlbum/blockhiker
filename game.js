@@ -1,4 +1,255 @@
-// --- Initialization ---
+// ==========================================
+// FILE: game.js
+// ==========================================
+
+let gameState = "PLAY"; 
+let currentLevel = 1;
+let worldWidth = 100;
+let worldHeight = 50;
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let width, height;
+
+// Game State Arrays
+let world = [];
+let worldHealth = []; 
+let crumbleTimers = []; 
+let particles = [];
+let mobs = [];
+let projectiles = [];
+let activeTNTs = []; 
+let floatTexts = [];
+let weatherParticles = [];
+
+let gameTime = 0; 
+let shake = 0;
+let damageFlash = 0; 
+let weather = "NONE"; 
+let activeBoss = null;
+
+// Player Object
+const player = {
+    x: 0, y: 0,
+    width: 28, height: 38,
+    vx: 0, vy: 0,
+    grounded: false,
+    facingRight: true,
+    attackTimer: 0,
+    actionTimer: 0,
+    hp: 100, maxHp: 100,
+    gold: 10, speed: 6, damage: 15,
+    breath: 100,
+    inWater: false,
+    invulnerable: 0,
+    jumps: 0, spin: 0, 
+    eyeState: 'normal', eyeTimer: 0,
+    hasWand: false, hasAxe: false, hasSpear: false
+};
+
+const camera = { x: 0, y: 0 };
+
+let inventory = [
+    ITEMS.SWORD, BLOCKS.DIRT, BLOCKS.STONE, BLOCKS.WOOD, BLOCKS.PLANK, 
+    BLOCKS.TNT, BLOCKS.GLASS, BLOCKS.WATER, BLOCKS.LAVA, BLOCKS.ICE, BLOCKS.BOUNCE
+];
+let selectedBlockIndex = 0;
+
+const keys = {};
+const mouse = { x: 0, y: 0, leftDown: false, rightDown: false };
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let audioEnabled = false;
+
+// --- Helper Functions ---
+
+function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+}
+
+function getBlock(x, y) {
+    x = Math.floor(x);
+    y = Math.floor(y);
+    if (x >= 0 && x < worldWidth && y >= 0 && y < worldHeight) return world[y][x];
+    return BLOCKS.AIR;
+}
+
+function setBlock(x, y, id) {
+    x = Math.floor(x);
+    y = Math.floor(y);
+    if (x >= 0 && x < worldWidth && y >= 0 && y < worldHeight) world[y][x] = id;
+}
+
+function spawnParticles(tx, ty, color, count = 5) {
+    for(let i=0; i<count; i++) {
+        particles.push({
+            x: tx, y: ty,
+            vx: (Math.random() - 0.5) * 8,
+            vy: (Math.random() - 0.5) * 8,
+            life: 20 + Math.random() * 20,
+            color: color,
+            size: 4 + Math.random() * 4
+        });
+    }
+}
+
+function spawnFloatingText(x, y, text, color) {
+    floatTexts.push({ x, y, text, color, life: 40, vy: -1 });
+}
+
+function addGold(amount) {
+    if (!amount) return;
+    player.gold += amount;
+    updateHUD();
+}
+
+function updateHUD() {
+    document.getElementById('ui-level').innerText = currentLevel;
+    document.getElementById('ui-gold').innerText = Math.floor(player.gold);
+    document.getElementById('ui-hp').innerText = Math.floor(player.hp);
+    document.getElementById('ui-max-hp').innerText = player.maxHp;
+    
+    let hpPct = (player.hp / player.maxHp) * 100;
+    document.getElementById('ui-hp-bar').style.width = Math.max(0, hpPct) + '%';
+
+    let breathBar = document.getElementById('breath-bar');
+    if (player.inWater) {
+         document.getElementById('breath-container').style.display = 'block';
+         breathBar.style.width = player.breath + '%';
+    } else {
+         document.getElementById('breath-container').style.display = 'none';
+    }
+    
+    document.getElementById('shop-gold').innerText = Math.floor(player.gold);
+}
+
+function selectSlot(index) {
+    if (index < 0 || index >= inventory.length) return;
+    selectedBlockIndex = index;
+    const slots = document.querySelectorAll('.slot');
+    slots.forEach(s => s.classList.remove('active'));
+    if(slots[index]) slots[index].classList.add('active');
+}
+
+function setupUI() {
+    const ui = document.getElementById('ui-layer');
+    ui.innerHTML = '';
+    inventory.forEach((item, index) => {
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        if (index === selectedBlockIndex) slot.classList.add('active');
+        slot.onclick = () => selectSlot(index);
+        
+        const key = document.createElement('div');
+        key.className = 'slot-key';
+        key.innerText = index + 1;
+        slot.appendChild(key);
+
+        let def = BLOCK_DEF[item];
+        if (def.icon) {
+             const icon = document.createElement('div');
+             icon.className = 'item-icon';
+             icon.innerText = def.icon;
+             slot.appendChild(icon);
+        } else {
+            const preview = document.createElement('div');
+            preview.className = 'block-preview';
+            preview.style.backgroundColor = def.color;
+            if (def.top) preview.style.borderTop = `5px solid ${def.top}`;
+            slot.appendChild(preview);
+        }
+        ui.appendChild(slot);
+    });
+}
+
+// Audio
+function toggleAudio() {
+    audioEnabled = !audioEnabled;
+    if(audioEnabled) {
+         if(audioCtx.state === 'suspended') audioCtx.resume();
+         startMusic();
+         document.getElementById('audio-controls').innerText = "🎵 Sound: ON";
+    } else {
+         document.getElementById('audio-controls').innerText = "🎵 Sound: OFF";
+    }
+}
+
+function playTone(freq, type, duration) {
+    if(!audioEnabled) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+function startMusic() {
+    if(!audioEnabled) return;
+    const melody = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+    let noteIdx = 0;
+    setInterval(() => {
+        if(!audioEnabled) return;
+        if(gameState === "PLAY") {
+            if(noteIdx % 4 === 0) playTone(melody[Math.floor(Math.random()*3)]/2, 'triangle', 0.4);
+            if(Math.random() > 0.3) playTone(melody[Math.floor(Math.random()*8)], 'square', 0.2);
+            noteIdx++;
+        }
+    }, 250);
+}
+
+// Global Functions for HTML Interaction
+window.buyItem = function(type) {
+    let cost = 0;
+    if (type === 'heal') cost = 50;
+    if (type === 'damage') cost = 200;
+    if (type === 'speed') cost = 150;
+    if (type === 'maxhp') cost = 300;
+    if (type === 'wand') cost = 500;
+    if (type === 'axe') cost = 400;
+    if (type === 'spear') cost = 450;
+
+    if (player.gold >= cost) {
+        if (type === 'wand' && player.hasWand) return; 
+        if (type === 'axe' && player.hasAxe) return; 
+        if (type === 'spear' && player.hasSpear) return; 
+
+        player.gold -= cost;
+        if (type === 'heal') player.hp = Math.min(player.hp + 50, player.maxHp);
+        if (type === 'damage') player.damage += 10;
+        if (type === 'speed') player.speed += 1;
+        if (type === 'maxhp') { player.maxHp += 50; player.hp += 50; }
+        if (type === 'wand') { player.hasWand = true; inventory.push(ITEMS.WAND); }
+        if (type === 'axe') { player.hasAxe = true; inventory.push(ITEMS.AXE); }
+        if (type === 'spear') { player.hasSpear = true; inventory.push(ITEMS.SPEAR); }
+        
+        setupUI();
+        updateHUD();
+        document.getElementById('shop-gold').innerText = Math.floor(player.gold);
+        
+        // Refresh button states
+        if(type === 'wand' || type === 'axe' || type === 'spear') completeLevel(); 
+    } else {
+        alert("골드가 부족합니다!");
+    }
+};
+
+window.nextLevel = function() {
+    currentLevel++;
+    generateLevel(currentLevel);
+};
+
+window.restartGame = function() {
+    player.hp = player.maxHp;
+    generateLevel(currentLevel);
+};
+
+// --- Game Logic ---
+
 function init() {
     resize();
     window.addEventListener('resize', resize);
@@ -13,8 +264,6 @@ function init() {
             if (!isNaN(num) && num >= 1 && num <= 9) {
                  if (num <= inventory.length) selectSlot(num - 1);
             }
-            
-            // Double Jump Input
             if ((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') && !e.repeat) {
                 handleJump();
             }
@@ -43,19 +292,13 @@ function init() {
     requestAnimationFrame(loop);
 }
 
-function resize() {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-}
-
 function handleJump() {
     if (player.inWater) {
-         // Water Jump logic handled in update
+         // Handled in update
     } else {
         if (player.grounded) {
-            // Ground Jump handled in update for Bounce Block check
+             // Handled in update
         } else if (player.jumps < 2) {
-            // Double Jump
             player.vy = JUMP_FORCE;
             player.jumps = 2;
             player.spin = 720; 
@@ -67,7 +310,6 @@ function handleJump() {
     }
 }
 
-// --- Level Generation ---
 function generateLevel(level) {
     world = [];
     worldHealth = []; 
@@ -150,11 +392,9 @@ function generateLevel(level) {
                 if (y >= worldHeight - 2) block = BLOCKS.BRICK;
             }
             
-            // One Block Portal
             if (x === worldWidth - 4 && y === h - 1) block = BLOCKS.GOAL;
             if (x > worldWidth - 10 && y >= h && block === BLOCKS.AIR) block = BLOCKS.STONE;
             
-            // Feature Blocks
             if (block === BLOCKS.DIRT && Math.random() < 0.02) block = BLOCKS.PLANK;
             if (block === BLOCKS.STONE && Math.random() < 0.02) block = BLOCKS.ICE;
             if (block === BLOCKS.DIRT && Math.random() < 0.01) block = BLOCKS.BOUNCE;
@@ -202,36 +442,40 @@ function generateLevel(level) {
         }
     }
 
-    // Mobs
+    // Spawn Mobs (New Logic)
+    let availableMobs = Object.keys(MOB_TYPES).filter(k => {
+        let m = MOB_TYPES[k];
+        return m.type !== 'boss' && (!m.minLevel || currentLevel >= m.minLevel);
+    });
+
     for (let x = 20; x < worldWidth - 20; x++) {
-        if (isBossLevel && x > worldWidth - 60) continue;
+        if (level % 3 === 0 && x > worldWidth - 60) continue;
         if (Math.random() < mobChance) {
             let h = heights[x];
-            if (world[h][x] !== BLOCKS.AIR && world[h-1][x] === BLOCKS.AIR) {
-                let type = (Math.random() < 0.6) ? 'SLIME' : 'ZOMBIE';
-                spawnMob(x * TILE_SIZE, (h - 2) * TILE_SIZE, type);
-            }
-            if (level > 2 && Math.random() < 0.3) {
-                 spawnMob(x * TILE_SIZE, (h - 10) * TILE_SIZE, 'BAT');
+            let mobKey = availableMobs[Math.floor(Math.random() * availableMobs.length)];
+            let mDef = MOB_TYPES[mobKey];
+            
+            if (!mDef.fly) {
+                if (world[h][x] !== BLOCKS.AIR && world[h-1][x] === BLOCKS.AIR) {
+                    spawnMob(x * TILE_SIZE, (h - 2) * TILE_SIZE, mobKey);
+                }
+            } else {
+                if (Math.random() < 0.3) spawnMob(x * TILE_SIZE, (h - 10) * TILE_SIZE, mobKey);
             }
         }
     }
 
     while (mobs.length < 3) {
         let rx = 20 + Math.floor(Math.random() * (worldWidth - 40));
-        if (isBossLevel && rx > worldWidth - 60) continue;
         let rh = heights[rx];
-        if (world[rh][rx] !== BLOCKS.AIR && world[rh-1][rx] === BLOCKS.AIR) {
-            spawnMob(rx * TILE_SIZE, (rh - 2) * TILE_SIZE, 'SLIME');
-        }
+        if (world[rh][rx] !== BLOCKS.AIR) spawnMob(rx * TILE_SIZE, (rh - 2) * TILE_SIZE, 'SLIME');
     }
 
     if (isBossLevel) {
         let bx = (worldWidth - 30) * TILE_SIZE;
         let bossType = 'BOSS_SLIME';
-        if (level % 9 === 3) bossType = 'BOSS_SLIME';
-        else if (level % 9 === 6) bossType = 'BOSS_ZOMBIE';
-        else if (level % 9 === 0) bossType = 'BOSS_VOID';
+        if (level % 9 === 6) bossType = 'BOSS_ZOMBIE';
+        if (level % 9 === 0) bossType = 'BOSS_VOID';
         spawnMob(bx, 0, bossType);
     }
 
@@ -243,26 +487,6 @@ function generateLevel(level) {
     updateHUD();
 }
 
-function spawnMob(x, y, typeKey) {
-    let stats = MOB_TYPES[typeKey];
-    let hpScale = stats.hp + (currentLevel * 10);
-    let m = {
-        x: x, y: y,
-        vx: 0, vy: 0,
-        ...stats,
-        maxHp: hpScale,
-        hp: hpScale,
-        grounded: false,
-        hurtTimer: 0
-    };
-    mobs.push(m);
-    if (stats.type === 'boss') {
-        activeBoss = m;
-        document.querySelector('.boss-name').innerText = stats.name;
-    }
-}
-
-// --- Game Logic ---
 function loop() {
     if (gameState === "PLAY") {
         update();
@@ -576,7 +800,7 @@ function updateParticles() {
 function checkRectOverlap(a, b) {
     return (a.x < b.x + b.width && a.x + a.width > b.x &&
             a.y < b.y + b.height && a.y + a.height > b.y);
-}
+    }
 
 function isBlocked(entity) {
     let tx = Math.floor((entity.x + (entity.vx > 0 ? entity.width + 5 : -5)) / TILE_SIZE);
@@ -722,6 +946,7 @@ function handleInteraction(button) {
             }
         }
     } else if (button === 2) { // Place
+        // Tool check to prevent placing weapons
         if (selected >= 100) return; 
 
         let px = player.x / TILE_SIZE;
@@ -872,30 +1097,24 @@ function draw() {
     ctx.beginPath();
     ctx.moveTo(0, height);
     for(let i=0; i<=width; i+=10) {
-        let wx = i + camera.x * 0.1; 
-        let mh = 150 + Math.sin(wx * 0.005) * 50 + Math.sin(wx * 0.02) * 20; 
+        let wx = i + camera.x * 0.1; let mh = 150 + Math.sin(wx * 0.005) * 50 + Math.sin(wx * 0.02) * 20; 
         ctx.lineTo(i, height - mh);
     }
-    ctx.lineTo(width, height);
-    ctx.fill();
+    ctx.lineTo(width, height); ctx.fill();
 
     ctx.save();
-    let shakeX = (Math.random() - 0.5) * shake;
-    let shakeY = (Math.random() - 0.5) * shake;
+    let shakeX = (Math.random() - 0.5) * shake; let shakeY = (Math.random() - 0.5) * shake;
     ctx.translate(-Math.floor(camera.x) + shakeX, -Math.floor(camera.y) + shakeY);
 
-    const startCol = Math.floor(camera.x / TILE_SIZE);
-    const endCol = startCol + (width / TILE_SIZE) + 2;
-    const startRow = Math.floor(camera.y / TILE_SIZE);
-    const endRow = startRow + (height / TILE_SIZE) + 2;
+    const startCol = Math.floor(camera.x / TILE_SIZE), endCol = startCol + (width / TILE_SIZE) + 2;
+    const startRow = Math.floor(camera.y / TILE_SIZE), endRow = startRow + (height / TILE_SIZE) + 2;
 
     for (let y = Math.max(0, startRow); y < Math.min(worldHeight, endRow); y++) {
         for (let x = Math.max(0, startCol); x < Math.min(worldWidth, endCol); x++) {
             let type = world[y][x];
             if (type !== BLOCKS.AIR) {
                 let def = BLOCK_DEF[type];
-                let px = x * TILE_SIZE;
-                let py = y * TILE_SIZE;
+                let px = x * TILE_SIZE, py = y * TILE_SIZE;
                 
                 if (type === BLOCKS.WATER) {
                     let isSurface = getBlock(x, y-1) === BLOCKS.AIR;
@@ -903,74 +1122,37 @@ function draw() {
                     if (isSurface) {
                         ctx.fillRect(px, py + 6, TILE_SIZE, TILE_SIZE - 6);
                         ctx.fillStyle = "rgba(255,255,255,0.4)";
-                        let wave = Math.sin((x + gameTime * 0.1)) * 3;
-                        ctx.fillRect(px, py + 4 + wave, TILE_SIZE, 2);
+                        let wave = Math.sin((x + gameTime * 0.1)) * 3; ctx.fillRect(px, py + 4 + wave, TILE_SIZE, 2);
                     } else {
                         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                        if ((x+y+Math.floor(gameTime/20)) % 7 === 0) {
-                            ctx.fillStyle = "rgba(255,255,255,0.2)";
-                            ctx.fillRect(px + 10, py + 10, 4, 4);
-                         }
+                        if ((x+y+Math.floor(gameTime/20)) % 7 === 0) { ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(px + 10, py + 10, 4, 4); }
                     }
                 } else if (type === BLOCKS.LAVA) {
-                    ctx.fillStyle = def.color;
-                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = "#FFEB3B";
-                    let bubbleY = (py + gameTime * 0.5 + x*10) % TILE_SIZE;
-                    ctx.fillRect(px + (x*7)%20 + 5, py + TILE_SIZE - bubbleY, 4, 4);
+                    ctx.fillStyle = def.color; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = "#FFEB3B"; let bubbleY = (py + gameTime * 0.5 + x*10) % TILE_SIZE; ctx.fillRect(px + (x*7)%20 + 5, py + TILE_SIZE - bubbleY, 4, 4);
                 } else if (type === BLOCKS.TNT) {
-                    ctx.fillStyle = def.color;
-                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = "white";
-                    ctx.font = "12px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText("TNT", px + TILE_SIZE/2, py + TILE_SIZE/2 + 4);
-                    ctx.strokeStyle = "rgba(0,0,0,0.2)";
-                    ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = def.color; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = "white"; ctx.font = "12px Arial"; ctx.textAlign = "center"; ctx.fillText("TNT", px + TILE_SIZE/2, py + TILE_SIZE/2 + 4);
+                    ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.strokeRect(px, py, TILE_SIZE, TILE_SIZE);
                 } else {
                     if (def.alpha) ctx.globalAlpha = def.alpha;
                     ctx.fillStyle = def.color;
-                    
                     if (def.spike) {
-                         ctx.beginPath();
-                         ctx.moveTo(px, py + TILE_SIZE);
-                         ctx.lineTo(px + TILE_SIZE/2, py);
-                         ctx.lineTo(px + TILE_SIZE, py + TILE_SIZE);
-                         ctx.fill();
+                         ctx.beginPath(); ctx.moveTo(px, py + TILE_SIZE); ctx.lineTo(px + TILE_SIZE/2, py); ctx.lineTo(px + TILE_SIZE, py + TILE_SIZE); ctx.fill();
                     } else if (type === BLOCKS.GOAL) {
-                        ctx.fillStyle = '#1A237E'; 
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                        ctx.fillStyle = '#000';
-                        ctx.beginPath();
-                        ctx.ellipse(px + TILE_SIZE/2, py + TILE_SIZE/2, 12, 16, 0, 0, Math.PI*2);
-                        ctx.fill();
-                        let pulse = Math.sin(gameTime * 0.1);
-                        ctx.fillStyle = `rgba(0, 229, 255, ${0.6 + pulse * 0.2})`; 
-                        ctx.beginPath();
-                        ctx.ellipse(px + TILE_SIZE/2, py + TILE_SIZE/2, 8 + pulse, 12 - pulse, gameTime * 0.05, 0, Math.PI*2);
-                        ctx.fill();
+                        ctx.fillStyle = '#1A237E'; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(px + TILE_SIZE/2, py + TILE_SIZE/2, 12, 16, 0, 0, Math.PI*2); ctx.fill();
+                        let pulse = Math.sin(gameTime * 0.1); ctx.fillStyle = `rgba(0, 229, 255, ${0.6 + pulse * 0.2})`; ctx.beginPath(); ctx.ellipse(px + TILE_SIZE/2, py + TILE_SIZE/2, 8 + pulse, 12 - pulse, gameTime * 0.05, 0, Math.PI*2); ctx.fill();
                     } else {
                         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                        if (def.top) { 
-                            ctx.fillStyle = (weather === "SNOW" && type === BLOCKS.GRASS) ? '#ffffff' : def.top; 
-                            ctx.fillRect(px, py, TILE_SIZE, 8); 
-                        }
-                        if (def.speckle) { 
-                            ctx.fillStyle = def.speckle; 
-                            ctx.fillRect(px+10, py+10, 6, 6); 
-                        }
+                        if (def.top) { ctx.fillStyle = (weather === "SNOW" && type === BLOCKS.GRASS) ? '#ffffff' : def.top; ctx.fillRect(px, py, TILE_SIZE, 8); }
+                        if (def.speckle) { ctx.fillStyle = def.speckle; ctx.fillRect(px+10, py+10, 6, 6); }
                         if (def.hard) {
                             let hp = worldHealth[y][x];
                             if (hp < def.maxHp) {
-                                ctx.strokeStyle = "rgba(0,0,0,0.5)";
-                                ctx.lineWidth = 2;
-                                ctx.beginPath();
-                                ctx.moveTo(px + 5, py + 5);
-                                ctx.lineTo(px + 35, py + 35);
-                                if(hp < def.maxHp - 1) {
-                                    ctx.moveTo(px + 35, py + 5);
-                                    ctx.lineTo(px + 5, py + 35);
-                                }
+                                ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 2; ctx.beginPath();
+                                ctx.moveTo(px + 5, py + 5); ctx.lineTo(px + 35, py + 35);
+                                if(hp < def.maxHp - 1) { ctx.moveTo(px + 35, py + 5); ctx.lineTo(px + 5, py + 35); }
                                 ctx.stroke();
                             }
                         }
@@ -979,200 +1161,128 @@ function draw() {
                 }
             }
         }
-        
-        activeTNTs.forEach(tnt => {
-            let px = tnt.x * TILE_SIZE;
-            let py = tnt.y * TILE_SIZE;
-            if (Math.floor(gameTime / 5) % 2 === 0) ctx.fillStyle = "#fff";
-            else ctx.fillStyle = "#d32f2f";
-            ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-            ctx.fillStyle = "black";
-            ctx.font = "12px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("TNT", px + TILE_SIZE/2, py + TILE_SIZE/2 + 4);
-        });
-
-        mobs.forEach(m => {
-            if (m.hurtTimer > 0) ctx.fillStyle = '#fff';
-            else ctx.fillStyle = m.color;
-            ctx.fillRect(m.x, m.y, m.width, m.height);
-            ctx.fillStyle = 'red';
-            ctx.fillRect(m.x, m.y - 10, m.width, 4);
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(m.x, m.y - 10, m.width * (m.hp / m.maxHp), 4);
-            
-            ctx.fillStyle = 'black';
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = 'black';
-            
-            if (m.hurtTimer > 0) { 
-                 ctx.beginPath(); 
-                 ctx.moveTo(m.x+5, m.y+8); ctx.lineTo(m.x+10, m.y+13); 
-                 ctx.moveTo(m.x+10, m.y+8); ctx.lineTo(m.x+5, m.y+13); 
-                 ctx.stroke();
-                 
-                 ctx.beginPath(); 
-                 ctx.moveTo(m.x+m.width-10, m.y+8); ctx.lineTo(m.x+m.width-5, m.y+13); 
-                 ctx.moveTo(m.x+m.width-5, m.y+8); ctx.lineTo(m.x+m.width-10, m.y+13); 
-                 ctx.stroke();
-                 
-                 ctx.beginPath(); ctx.arc(m.x + m.width/2, m.y + 18, 4, 0, Math.PI*2); ctx.fill();
-            } else { 
-                if (m.type === 'bat') {
-                     ctx.beginPath();
-                     ctx.moveTo(m.x, m.y+10); ctx.lineTo(m.x-10, m.y-5); ctx.lineTo(m.x, m.y+5); ctx.fill();
-                     ctx.beginPath();
-                     ctx.moveTo(m.x+m.width, m.y+10); ctx.lineTo(m.x+m.width+10, m.y-5); ctx.lineTo(m.x+m.width, m.y+5); ctx.fill();
-                } else if (m.type === 'boss') {
-                     ctx.fillRect(m.x + 10, m.y + 20, 15, 15);
-                     ctx.fillRect(m.x + m.width - 25, m.y + 20, 15, 15);
-                     ctx.fillRect(m.x + 20, m.y + 50, m.width - 40, 10);
-                } else {
-                     ctx.fillRect(m.x + 5, m.y + 8, 4, 4);
-                     ctx.fillRect(m.x + m.width - 9, m.y + 8, 4, 4);
-                }
-            }
-        });
-
-        projectiles.forEach(p => {
-            ctx.fillStyle = '#FF5722';
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
-            ctx.fill();
-        });
-
-        ctx.save();
-        ctx.translate(player.x + player.width/2, player.y + player.height/2);
-        
-        if(player.spin > 0) ctx.rotate(player.spin * Math.PI / 180);
-        
-        ctx.translate(-(player.x + player.width/2), -(player.y + player.height/2));
-
-        ctx.fillStyle = '#FFC107'; 
-        ctx.fillRect(player.x, player.y, player.width, player.height);
-        ctx.fillStyle = '#1E88E5'; ctx.fillRect(player.x, player.y + 16, player.width, 12);
-        ctx.fillStyle = '#43A047'; ctx.fillRect(player.x, player.y + 28, player.width, 10);
-        
-        ctx.fillStyle = 'black';
-        let eyeY = player.y + 8;
-        let leftEyeX = player.facingRight ? player.x + 14 : player.x + 6;
-        let rightEyeX = player.facingRight ? player.x + 22 : player.x + 14;
-
-        if (player.eyeState === 'blink') {
-             ctx.fillRect(leftEyeX, eyeY + 2, 4, 1);
-             ctx.fillRect(rightEyeX, eyeY + 2, 4, 1);
-        } else if (player.eyeState === 'wink') {
-             ctx.fillRect(leftEyeX, eyeY, 4, 4);
-             ctx.fillRect(rightEyeX, eyeY + 2, 4, 1);
-        } else if (player.eyeState === 'surprise') {
-             ctx.beginPath(); ctx.arc(leftEyeX + 2, eyeY + 2, 3, 0, Math.PI*2); ctx.fill();
-             ctx.beginPath(); ctx.arc(rightEyeX + 2, eyeY + 2, 3, 0, Math.PI*2); ctx.fill();
-        } else if (player.eyeState === 'hurt') {
-             ctx.beginPath(); ctx.moveTo(leftEyeX, eyeY); ctx.lineTo(leftEyeX+4, eyeY+4); ctx.moveTo(leftEyeX+4, eyeY); ctx.lineTo(leftEyeX, eyeY+4); ctx.stroke();
-             ctx.beginPath(); ctx.moveTo(rightEyeX, eyeY); ctx.lineTo(rightEyeX+4, eyeY+4); ctx.moveTo(rightEyeX+4, eyeY); ctx.lineTo(rightEyeX, eyeY+4); ctx.stroke();
-        } else {
-             ctx.fillRect(leftEyeX, eyeY, 4, 4);
-             ctx.fillRect(rightEyeX, eyeY, 4, 4);
-        }
-        
-        ctx.restore();
-
-        let currentItem = inventory[selectedBlockIndex];
-        if (currentItem >= 100) {
-            ctx.save();
-            ctx.translate(player.x + player.width/2, player.y + 20);
-            if (!player.facingRight) ctx.scale(-1, 1);
-            let rot = 0;
-            if (player.attackTimer > 0) {
-                 if (currentItem === ITEMS.SWORD) {
-                      let maxT = 8; 
-                      let p = 1 - (player.attackTimer / maxT);
-                      let ease = 1 - Math.pow(1 - p, 3); 
-                      rot = -Math.PI * 0.8 + ease * Math.PI * 1.6; 
-                 } else if (currentItem === ITEMS.AXE) {
-                      let maxT = 12;
-                      let p = 1 - (player.attackTimer / maxT);
-                      let ease = 1 - Math.pow(1 - p, 4); 
-                      rot = -Math.PI * 0.9 + ease * Math.PI * 1.5;
-                 } else if (currentItem === ITEMS.SPEAR) {
-                      let maxT = 15;
-                      let p = 1 - (player.attackTimer / maxT);
-                      let thrust = Math.sin(p * Math.PI) * 20; 
-                      ctx.translate(thrust, 0); 
-                      rot = 0;
-                 } else { 
-                      rot = -Math.PI / 4; 
-                      if (mouse.leftDown) rot = -Math.PI / 6; 
-                 }
-            }
-
-            ctx.rotate(rot);
-            let def = BLOCK_DEF[currentItem];
-            ctx.fillStyle = def.color; 
-            
-            if (currentItem === ITEMS.SWORD) {
-                 ctx.fillRect(10, -4, 20, 6); 
-                 ctx.fillStyle = '#5d4037'; ctx.fillRect(0, -2, 10, 4);
-            } else if (currentItem === ITEMS.AXE) {
-                 ctx.fillStyle = '#5d4037'; ctx.fillRect(0, -2, 25, 4); 
-                 ctx.fillStyle = def.color;
-                 ctx.beginPath(); ctx.arc(25, 0, 10, Math.PI/2, -Math.PI/2, true); ctx.fill(); 
-            } else if (currentItem === ITEMS.SPEAR) {
-                 ctx.fillStyle = '#5d4037'; ctx.fillRect(0, -2, 35, 4); 
-                 ctx.fillStyle = def.color; 
-                 ctx.beginPath(); ctx.moveTo(35, -2); ctx.lineTo(45, 0); ctx.lineTo(35, 2); ctx.fill(); 
-            } else { 
-                 ctx.fillRect(0, -2, 20, 4);
-                 ctx.fillStyle = 'red'; ctx.fillRect(20, -3, 4, 6);
-            }
-            ctx.restore();
-        }
-
-        particles.forEach(p => {
-            ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, p.size, p.size);
-        });
-        
-        if (gameState === "PLAY") {
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-            ctx.beginPath();
-            ctx.arc(player.x + player.width/2, player.y + player.height/2, INTERACTION_RANGE, 0, Math.PI*2);
-            ctx.stroke();
-        }
-        
-        for (let i = floatTexts.length - 1; i >= 0; i--) {
-            let ft = floatTexts[i];
-            ctx.fillStyle = ft.color;
-            ctx.font = "bold 16px Arial";
-            ctx.fillText(ft.text, ft.x, ft.y);
-            ft.y += ft.vy;
-            ft.life--;
-            if (ft.life <= 0) floatTexts.splice(i, 1);
-        }
-
-        let mx = mouse.x + camera.x;
-        let my = mouse.y + camera.y;
-        let sx = Math.floor(mx / TILE_SIZE) * TILE_SIZE;
-        let sy = Math.floor(my / TILE_SIZE) * TILE_SIZE;
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
-
-        ctx.restore();
-
-        if (weather !== "NONE") {
-            ctx.fillStyle = weather === "RAIN" ? "#64B5F6" : "#FFF";
-            weatherParticles.forEach(p => {
-                if (p.x > width) p.x = 0;
-                if (p.x < 0) p.x = width;
-                if (p.type === 'rain') ctx.fillRect(p.x, p.y, 2, 10);
-                else ctx.fillRect(p.x, p.y, 4, 4);
-            });
-        }
-
-        if (damageFlash > 0) {
-            ctx.fillStyle = `rgba(255, 0, 0, ${damageFlash})`;
-            ctx.fillRect(0, 0, width, height);
-            damageFlash -= 0.02; 
-        }
     }
+    
+    // Entities Rendering...
+    activeTNTs.forEach(tnt => {
+        let px = tnt.x * TILE_SIZE, py = tnt.y * TILE_SIZE;
+        ctx.fillStyle = (Math.floor(gameTime / 5) % 2 === 0) ? "#fff" : "#d32f2f";
+        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+        ctx.fillStyle = "black"; ctx.font = "12px Arial"; ctx.textAlign = "center"; ctx.fillText("TNT", px + TILE_SIZE/2, py + TILE_SIZE/2 + 4);
+    });
+
+    mobs.forEach(m => {
+        if (m.hurtTimer > 0) ctx.fillStyle = '#fff'; else ctx.fillStyle = m.color;
+        ctx.fillRect(m.x, m.y, m.width, m.height);
+        ctx.fillStyle = 'red'; ctx.fillRect(m.x, m.y - 10, m.width, 4);
+        ctx.fillStyle = '#0f0'; ctx.fillRect(m.x, m.y - 10, m.width * (m.hp / m.maxHp), 4);
+        
+        ctx.fillStyle = 'black'; ctx.lineWidth = 2; ctx.strokeStyle = 'black';
+        if (m.hurtTimer > 0) { 
+             ctx.beginPath(); ctx.moveTo(m.x+5, m.y+8); ctx.lineTo(m.x+10, m.y+13); ctx.moveTo(m.x+10, m.y+8); ctx.lineTo(m.x+5, m.y+13); ctx.stroke();
+             ctx.beginPath(); ctx.moveTo(m.x+m.width-10, m.y+8); ctx.lineTo(m.x+m.width-5, m.y+13); ctx.moveTo(m.x+m.width-5, m.y+8); ctx.lineTo(m.x+m.width-10, m.y+13); ctx.stroke();
+             ctx.beginPath(); ctx.arc(m.x + m.width/2, m.y + 18, 4, 0, Math.PI*2); ctx.fill();
+        } else { 
+            if (m.type === 'bat') {
+                 ctx.beginPath(); ctx.moveTo(m.x, m.y+10); ctx.lineTo(m.x-10, m.y-5); ctx.lineTo(m.x, m.y+5); ctx.fill();
+                 ctx.beginPath(); ctx.moveTo(m.x+m.width, m.y+10); ctx.lineTo(m.x+m.width+10, m.y-5); ctx.lineTo(m.x+m.width, m.y+5); ctx.fill();
+            } else if (m.type === 'boss') {
+                 ctx.fillRect(m.x + 10, m.y + 20, 15, 15); ctx.fillRect(m.x + m.width - 25, m.y + 20, 15, 15); ctx.fillRect(m.x + 20, m.y + 50, m.width - 40, 10);
+            } else {
+                 ctx.fillRect(m.x + 5, m.y + 8, 4, 4); ctx.fillRect(m.x + m.width - 9, m.y + 8, 4, 4);
+            }
+        }
+    });
+
+    projectiles.forEach(p => {
+        ctx.fillStyle = '#FF5722'; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
+    });
+
+    // Player
+    ctx.save();
+    ctx.translate(player.x + player.width/2, player.y + player.height/2);
+    if(player.spin > 0) ctx.rotate(player.spin * Math.PI / 180);
+    ctx.translate(-(player.x + player.width/2), -(player.y + player.height/2));
+
+    ctx.fillStyle = '#FFC107'; ctx.fillRect(player.x, player.y, player.width, player.height);
+    ctx.fillStyle = '#1E88E5'; ctx.fillRect(player.x, player.y + 16, player.width, 12);
+    ctx.fillStyle = '#43A047'; ctx.fillRect(player.x, player.y + 28, player.width, 10);
+    
+    ctx.fillStyle = 'black';
+    let eyeY = player.y + 8;
+    let leftEyeX = player.facingRight ? player.x + 14 : player.x + 6;
+    let rightEyeX = player.facingRight ? player.x + 22 : player.x + 14;
+
+    if (player.eyeState === 'blink') { ctx.fillRect(leftEyeX, eyeY + 2, 4, 1); ctx.fillRect(rightEyeX, eyeY + 2, 4, 1); }
+    else if (player.eyeState === 'wink') { ctx.fillRect(leftEyeX, eyeY, 4, 4); ctx.fillRect(rightEyeX, eyeY + 2, 4, 1); }
+    else if (player.eyeState === 'surprise') { ctx.beginPath(); ctx.arc(leftEyeX + 2, eyeY + 2, 3, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(rightEyeX + 2, eyeY + 2, 3, 0, Math.PI*2); ctx.fill(); }
+    else if (player.eyeState === 'hurt') {
+         ctx.beginPath(); ctx.moveTo(leftEyeX, eyeY); ctx.lineTo(leftEyeX+4, eyeY+4); ctx.moveTo(leftEyeX+4, eyeY); ctx.lineTo(leftEyeX, eyeY+4); ctx.stroke();
+         ctx.beginPath(); ctx.moveTo(rightEyeX, eyeY); ctx.lineTo(rightEyeX+4, eyeY+4); ctx.moveTo(rightEyeX+4, eyeY); ctx.lineTo(rightEyeX, eyeY+4); ctx.stroke();
+    } else { ctx.fillRect(leftEyeX, eyeY, 4, 4); ctx.fillRect(rightEyeX, eyeY, 4, 4); }
+    
+    ctx.restore();
+
+    // Held Item
+    let currentItem = inventory[selectedBlockIndex];
+    if (currentItem >= 100) {
+        ctx.save();
+        ctx.translate(player.x + player.width/2, player.y + 20);
+        if (!player.facingRight) ctx.scale(-1, 1);
+        let rot = 0;
+        if (player.attackTimer > 0) {
+             if (currentItem === ITEMS.SWORD) {
+                  let maxT = 8; let p = 1 - (player.attackTimer / maxT);
+                  let ease = 1 - Math.pow(1 - p, 3); 
+                  rot = -Math.PI * 0.8 + ease * Math.PI * 1.6; 
+             } else if (currentItem === ITEMS.AXE) {
+                  let maxT = 12; let p = 1 - (player.attackTimer / maxT);
+                  let ease = 1 - Math.pow(1 - p, 4); 
+                  rot = -Math.PI * 0.9 + ease * Math.PI * 1.5;
+             } else if (currentItem === ITEMS.SPEAR) {
+                  let maxT = 15; let p = 1 - (player.attackTimer / maxT);
+                  let thrust = Math.sin(p * Math.PI) * 20; ctx.translate(thrust, 0); rot = 0;
+             } else { 
+                  rot = -Math.PI / 4; if (mouse.leftDown) rot = -Math.PI / 6; 
+             }
+        }
+        ctx.rotate(rot);
+        let def = BLOCK_DEF[currentItem];
+        ctx.fillStyle = def.color; 
+        if (currentItem === ITEMS.SWORD) { ctx.fillRect(10, -4, 20, 6); ctx.fillStyle = '#5d4037'; ctx.fillRect(0, -2, 10, 4); }
+        else if (currentItem === ITEMS.AXE) { ctx.fillStyle = '#5d4037'; ctx.fillRect(0, -2, 25, 4); ctx.fillStyle = def.color; ctx.beginPath(); ctx.arc(25, 0, 10, Math.PI/2, -Math.PI/2, true); ctx.fill(); }
+        else if (currentItem === ITEMS.SPEAR) { ctx.fillStyle = '#5d4037'; ctx.fillRect(0, -2, 35, 4); ctx.fillStyle = def.color; ctx.beginPath(); ctx.moveTo(35, -2); ctx.lineTo(45, 0); ctx.lineTo(35, 2); ctx.fill(); }
+        else { ctx.fillRect(0, -2, 20, 4); ctx.fillStyle = 'red'; ctx.fillRect(20, -3, 4, 6); }
+        ctx.restore();
+    }
+
+    particles.forEach(p => {
+        ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    
+    if (gameState === "PLAY") {
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.beginPath(); ctx.arc(player.x + player.width/2, player.y + player.height/2, INTERACTION_RANGE, 0, Math.PI*2); ctx.stroke();
+    }
+    
+    for (let i = floatTexts.length - 1; i >= 0; i--) {
+        let ft = floatTexts[i]; ctx.fillStyle = ft.color; ctx.font = "bold 16px Arial"; ctx.fillText(ft.text, ft.x, ft.y); ft.y += ft.vy; ft.life--; if (ft.life <= 0) floatTexts.splice(i, 1);
+    }
+
+    let mx = mouse.x + camera.x, my = mouse.y + camera.y;
+    let sx = Math.floor(mx / TILE_SIZE) * TILE_SIZE, sy = Math.floor(my / TILE_SIZE) * TILE_SIZE;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)'; ctx.lineWidth = 2; ctx.strokeRect(sx, sy, TILE_SIZE, TILE_SIZE);
+    ctx.restore();
+
+    if (weather !== "NONE") {
+        ctx.fillStyle = weather === "RAIN" ? "#64B5F6" : "#FFF";
+        weatherParticles.forEach(p => {
+            if (p.x > width) p.x = 0; if (p.x < 0) p.x = width;
+            if (p.type === 'rain') ctx.fillRect(p.x, p.y, 2, 10); else ctx.fillRect(p.x, p.y, 4, 4);
+        });
+    }
+
+    if (damageFlash > 0) {
+        ctx.fillStyle = `rgba(255, 0, 0, ${damageFlash})`; ctx.fillRect(0, 0, width, height); damageFlash -= 0.02; 
+    }
+}
